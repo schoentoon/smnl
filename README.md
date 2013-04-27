@@ -1,4 +1,4 @@
-smnl
-====
+Strong Modular Network Logbook
+==============================
 
-Strong Modular Network Logbook, a small framework to directly log pcap data to a postgresql database
+A small framework to directly log pcap data to a postgresql database, a work in progress for now.
