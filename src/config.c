@@ -46,7 +46,7 @@ int parse_config(char* config_file) {
   struct module* module = NULL;
   struct config* current_config = NULL;
   while (fgets(line_buffer, sizeof(line_buffer), f)) {
-    if (strlen(line_buffer) == 1)
+    if (strlen(line_buffer) == 1 || line_buffer[0] == '#')
       continue;
     char key[MAXLINE];
     char value[MAXLINE];
