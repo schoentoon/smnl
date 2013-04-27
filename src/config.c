@@ -16,6 +16,7 @@
  */
 
 #include "config.h"
+#include "postgres.h"
 
 #include <stdio.h>
 #include <errno.h>
@@ -46,8 +47,11 @@ int parse_config(char* config_file) {
       continue;
     char key[MAXLINE];
     char value[MAXLINE];
-    if (sscanf(line_buffer, "%[a-z] = %s", &key, &value) == 2) {
-      if (strcasecmp(key, "interface") == 0) {
+    if (sscanf(line_buffer, "%[a-z] = %[^\t\n]", &key, &value) == 2) {
+      if (strcasecmp(key, "dbconnect") == 0) {
+        db_connect = malloc(strlen(value) + 1);
+        strcpy(db_connect, value);
+      } else if (strcasecmp(key, "interface") == 0) {
         int sd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
         if (sd > 0) {
           interface = malloc(sizeof(struct interface));

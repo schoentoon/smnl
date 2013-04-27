@@ -25,6 +25,8 @@
 
 #include <libpq-fe.h>
 
+char* db_connect;
+
 /** Initialize our database pool
  * @param base The event_base used for our internal timer
  * @param conninfo Connection information for postgresql
