@@ -21,3 +21,4 @@ bin/
 build/
 *.config
 !sample.config
+*~

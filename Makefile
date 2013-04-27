@@ -10,7 +10,7 @@ DEPS   := build/main.o build/postgres.o build/config.o
 
 .PHONY: all clean dev clang modules
 
-all: build bin/smnl modules
+all: build bin/$(BINARY) modules
 
 dev: clean
 	DEFINES="-DDEV" $(MAKE)
@@ -37,6 +37,9 @@ modules/sample.so: modules/src/sample.c
 
 clean:
 	rm -rfv bin/$(BINARY) $(DEPS) $(MODULES)
+
+setcaps: bin/$(BINARY)
+	sudo setcap cap_net_raw+ep bin/$(BINARY)
 
 install:
 	cp bin/$(BINARY) /usr/bin/$(BINARY)
