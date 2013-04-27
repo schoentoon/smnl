@@ -15,32 +15,25 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _CONFIG_H
-#define _CONFIG_H
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-typedef void* init_function();
-typedef void parseconfig_function(char* key, char* value, void* context);
-
-struct config {
-  struct interface* interface;
-  struct module* modules;
-  struct config* next;
+struct test {
+  char* testvar;
 };
 
-struct module {
-  void* module;
-  void* context;
-  struct module* next;
+void* initContext() {
+  fprintf(stderr, "initContext();\n");
+  return malloc(sizeof(struct test));
 };
 
-static struct config* config;
-
-struct interface {
-  char* interface;
-  char* range;
-  unsigned char mac_addr[6];
+void parseConfig(char* key, char* value, void* context) {
+  fprintf(stderr, "parseConfig('%s', '%s', %p);\n", key, value, context);
+  if (strcmp(key, "test") == 0) {
+    fprintf(stderr, "Value is %s.\n", value);
+    struct test* ctx = (struct test*) context;
+    ctx->testvar = malloc(strlen(value) + 1);
+    strcpy(ctx->testvar, value);
+  }
 };
-
-int parse_config(char* config_file);
-
-#endif //_CONFIG_H

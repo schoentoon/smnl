@@ -1,20 +1,24 @@
 CFLAGS := $(CFLAGS) -Wall -O2 -mtune=native -g
+MFLAGS := -shared -fPIC
 INC    := -Iinclude -I/usr/include/postgresql $(INC)
-LFLAGS := -levent -lpq
+LFLAGS := -levent -lpq -ldl
 DEFINES:= $(DEFINES)
 CC     := gcc
 BINARY := smnl
+MODULES:= modules/sample.so
 DEPS   := build/main.o build/postgres.o build/config.o
 
-.PHONY: all clean dev
+.PHONY: all clean dev clang modules
 
-all: build bin/smnl
+all: build bin/smnl modules
 
 dev: clean
 	DEFINES="-DDEV" $(MAKE)
 
 build:
 	-mkdir -p build bin
+
+modules: $(MODULES)
 
 build/main.o: src/main.c
 	$(CC) $(CFLAGS) $(DEFINES) $(INC) -c -o build/main.o src/main.c
@@ -28,11 +32,14 @@ build/config.o: src/config.c include/config.h
 bin/smnl: $(DEPS)
 	$(CC) $(CFLAGS) $(DEFINES) $(INC) -o bin/$(BINARY) $(DEPS) $(LFLAGS)
 
+modules/sample.so: modules/src/sample.c
+	$(CC) $(CFLAGS) $(MFLAGS) $(DEFINES) $(INC) -o modules/sample.so modules/src/sample.c
+
 clean:
-	rm -rfv build bin
+	rm -rfv bin/$(BINARY) $(DEPS) $(MODULES)
 
 install:
 	cp bin/$(BINARY) /usr/bin/$(BINARY)
 
 clang:
-	$(MAKE) dev CC=clang
+	$(MAKE) CC=clang
