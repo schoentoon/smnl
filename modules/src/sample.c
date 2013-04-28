@@ -20,6 +20,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <arpa/inet.h>
+#include <event2/event.h>
 
 struct test {
   char* testvar;
@@ -45,8 +46,14 @@ char* getPcapRule() {
   return "arp";
 };
 
+int preCapture(struct event_base* base) {
+  fprintf(stderr, "preCapture(%p);\n", base);
+  return 1;
+};
+
 #define ARP_REQUEST 1
 #define ARP_REPLY 2
+
 typedef struct arphdr {
     u_int16_t htype;
     u_int16_t ptype;
@@ -60,7 +67,7 @@ typedef struct arphdr {
 } arphdr_t;
 
 void packetCallback(const unsigned char *packet, struct pcap_pkthdr pkthdr, void* context) {
-  fprintf(stderr, "packetCallback();\n");
+  fprintf(stderr, "packetCallback(%p, %p, %p);\n", packet, &pkthdr, context);
   arphdr_t *arpheader = (struct arphdr*) (packet + 14);
   if (arpheader->tha[0] == 0x00 || arpheader->tha[0] == 0xFF)
     return;

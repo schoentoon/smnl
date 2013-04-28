@@ -142,8 +142,12 @@ int launch_config(struct event_base* base) {
         else if (pcap_setfilter(mod->pcap_handle, &filter) == -1)
           fprintf(stderr, "ERROR: %s\n", pcap_geterr(mod->pcap_handle));
         else {
-          struct event* ev = event_new(base, pcap_fileno(mod->pcap_handle), EV_READ|EV_PERSIST, pcap_callback, mod);
-          event_add(ev, NULL);
+          pre_capture_function* precapture_func = dlsym(mod->mod_handle, "preCapture");
+          if ((precapture_func && precapture_func(base)) || precapture_func == NULL) {
+            fprintf(stderr, "Yup...\n");
+            struct event* ev = event_new(base, pcap_fileno(mod->pcap_handle), EV_READ|EV_PERSIST, pcap_callback, mod);
+            event_add(ev, NULL);
+          }
         }
       }
       mod = mod->next;
