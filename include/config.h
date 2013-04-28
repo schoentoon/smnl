@@ -23,7 +23,7 @@
 
 typedef void* init_function();
 typedef void parseconfig_function(char* key, char* value, void* context);
-typedef char* pcaprule_function();
+typedef char* pcaprule_function(void* context);
 typedef int pre_capture_function(struct event_base* base);
 typedef void pcap_packet_callback(const unsigned char *packet, struct pcap_pkthdr pkthdr, void* context);
 

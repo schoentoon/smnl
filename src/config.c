@@ -139,7 +139,7 @@ int launch_config(struct event_base* base) {
           fprintf(stderr, "ERROR: %s\n", errbuf);
         else {
           pcaprule_function* rule_func = dlsym(mod->mod_handle, "getPcapRule");
-          if (pcap_compile(mod->pcap_handle, &filter, rule_func(), 1, mask) == -1)
+          if (pcap_compile(mod->pcap_handle, &filter, rule_func(mod->context), 1, mask) == -1)
             fprintf(stderr, "ERROR: %s\n", pcap_geterr(mod->pcap_handle));
           else if (pcap_setfilter(mod->pcap_handle, &filter) == -1)
             fprintf(stderr, "ERROR: %s\n", pcap_geterr(mod->pcap_handle));

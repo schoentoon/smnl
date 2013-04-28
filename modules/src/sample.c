@@ -41,8 +41,8 @@ void parseConfig(char* key, char* value, void* context) {
   }
 };
 
-char* getPcapRule() {
-  fprintf(stderr, "getPcapRule();\n");
+char* getPcapRule(void* context) {
+  fprintf(stderr, "getPcapRule(%p);\n", context);
   return "arp";
 };
 
