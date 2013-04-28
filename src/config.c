@@ -106,6 +106,13 @@ int parse_config(char* config_file) {
             fprintf(stderr, "Module '%s' doesn't seem to have the function getPcapRule(), which is required.\n", value);
             fclose(f);
             return 0;
+          } else {
+            module->packet_callback = dlsym(mod_handle, "packetCallback");
+            if (module->packet_callback == NULL) {
+              fprintf(stderr, "Module '%s' doesn't seem to have the function packetCallback(), which is required.\n", value);
+              fclose(f);
+              return 0;
+            }
           }
           init_function *init = dlsym(mod_handle, "initContext");
           if (init)
@@ -144,9 +151,8 @@ void pcap_callback(evutil_socket_t fd, short what, void *arg) {
   struct module* mod = (struct module*) arg;
   struct pcap_pkthdr pkthdr;
   const unsigned char *packet=NULL;
-  while ((packet = pcap_next(mod->pcap_handle, &pkthdr)) != NULL) {
-    printf("\n\nReceived Packet Size: %d bytes\n", pkthdr.len); 
-  }
+  while ((packet = pcap_next(mod->pcap_handle, &pkthdr)) != NULL)
+    mod->packet_callback(packet, pkthdr, mod->context);
 };
 
 int launch_config(struct event_base* base) {

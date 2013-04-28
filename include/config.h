@@ -24,6 +24,7 @@
 typedef void* init_function();
 typedef void parseconfig_function(char* key, char* value, void* context);
 typedef char* pcaprule_function();
+typedef void pcap_packet_callback(const unsigned char *packet, struct pcap_pkthdr pkthdr, void* context);
 
 struct config {
   struct interface* interface;
@@ -35,6 +36,7 @@ struct module {
   void* mod_handle;
   void* context;
   pcap_t *pcap_handle;
+  pcap_packet_callback *packet_callback;
   struct module* next;
 };
 

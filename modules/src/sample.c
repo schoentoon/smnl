@@ -15,9 +15,11 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include <pcap.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <arpa/inet.h>
 
 struct test {
   char* testvar;
@@ -41,4 +43,45 @@ void parseConfig(char* key, char* value, void* context) {
 char* getPcapRule() {
   fprintf(stderr, "getPcapRule();\n");
   return "arp";
+};
+
+#define ARP_REQUEST 1
+#define ARP_REPLY 2
+typedef struct arphdr {
+    u_int16_t htype;
+    u_int16_t ptype;
+    u_char hlen;
+    u_char plen;
+    u_int16_t oper;
+    u_char sha[6];
+    u_char spa[4];
+    u_char tha[6];
+    u_char tpa[4];
+} arphdr_t;
+
+void packetCallback(const unsigned char *packet, struct pcap_pkthdr pkthdr, void* context) {
+  fprintf(stderr, "packetCallback();\n");
+  arphdr_t *arpheader = (struct arphdr*) (packet + 14);
+  if (arpheader->tha[0] == 0x00 || arpheader->tha[0] == 0xFF)
+    return;
+  int i;
+  printf("\n\nReceived Packet Size: %d bytes\n", pkthdr.len);
+  printf("Hardware type: %s\n", (ntohs(arpheader->htype) == 1) ? "Ethernet" : "Unknown");
+  printf("Protocol type: %s\n", (ntohs(arpheader->ptype) == 0x0800) ? "IPv4" : "Unknown");
+  printf("Operation: %s\n", (ntohs(arpheader->oper) == ARP_REQUEST)? "ARP Request" : "ARP Reply");
+  if (ntohs(arpheader->htype) == 1 && ntohs(arpheader->ptype) == 0x0800) {
+    printf("Sender MAC: ");
+    for(i=0; i<6; i++)
+      printf("%02X:", arpheader->sha[i]);
+    printf("\nSender IP: ");
+    for(i=0; i<4; i++)
+      printf("%d.", arpheader->spa[i]);
+    printf("\nTarget MAC: ");
+    for(i=0; i<6; i++)
+      printf("%02X:", arpheader->tha[i]);
+    printf("\nTarget IP: ");
+    for(i=0; i<4; i++)
+      printf("%d.", arpheader->tpa[i]);
+    printf("\n");
+  }
 };
