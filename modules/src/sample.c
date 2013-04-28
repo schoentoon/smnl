@@ -69,26 +69,29 @@ typedef struct arphdr {
 void packetCallback(const unsigned char *packet, struct pcap_pkthdr pkthdr, void* context) {
   fprintf(stderr, "packetCallback(%p, %p, %p);\n", packet, &pkthdr, context);
   arphdr_t *arpheader = (struct arphdr*) (packet + 14);
-  if (arpheader->tha[0] == 0x00 || arpheader->tha[0] == 0xFF)
+  if ((arpheader->tha[0] == 0x00 && arpheader->tha[1] == 0x00 && arpheader->tha[2] == 0x00
+    && arpheader->tha[3] == 0x00 && arpheader->tha[4] == 0x00 && arpheader->tha[5] == 0x00)
+    || (arpheader->tha[0] == 0xFF && arpheader->tha[1] == 0xFF && arpheader->tha[2] == 0xFF
+    && arpheader->tha[3] == 0xFF && arpheader->tha[4] == 0xFF && arpheader->tha[5] == 0xFF))
     return;
-  int i;
-  printf("\n\nReceived Packet Size: %d bytes\n", pkthdr.len);
+  printf("Received Packet Size: %d bytes\n", pkthdr.len);
   printf("Hardware type: %s\n", (ntohs(arpheader->htype) == 1) ? "Ethernet" : "Unknown");
   printf("Protocol type: %s\n", (ntohs(arpheader->ptype) == 0x0800) ? "IPv4" : "Unknown");
-  printf("Operation: %s\n", (ntohs(arpheader->oper) == ARP_REQUEST)? "ARP Request" : "ARP Reply");
+  printf("Operation: %s\n", (ntohs(arpheader->oper) == ARP_REQUEST) ? "ARP Request" : "ARP Reply");
   if (ntohs(arpheader->htype) == 1 && ntohs(arpheader->ptype) == 0x0800) {
+    int i;
     printf("Sender MAC: ");
-    for(i=0; i<6; i++)
-      printf("%02X:", arpheader->sha[i]);
+    for (i = 0; i < 6; i++)
+      printf("%02X%s", arpheader->sha[i], (i != 5) ? ":" : "");
     printf("\nSender IP: ");
-    for(i=0; i<4; i++)
-      printf("%d.", arpheader->spa[i]);
+    for (i = 0; i < 4; i++)
+      printf("%d%s", arpheader->spa[i], (i != 3) ? "." : "");
     printf("\nTarget MAC: ");
-    for(i=0; i<6; i++)
-      printf("%02X:", arpheader->tha[i]);
+    for(i = 0; i < 6; i++)
+      printf("%02X%s", arpheader->tha[i], (i != 5) ? ":" : "");
     printf("\nTarget IP: ");
-    for(i=0; i<4; i++)
-      printf("%d.", arpheader->tpa[i]);
+    for(i = 0; i < 4; i++)
+      printf("%d%s", arpheader->tpa[i], (i != 3) ? "." : "");
     printf("\n");
   }
 };
