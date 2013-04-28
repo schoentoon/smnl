@@ -42,7 +42,6 @@ int parse_config(char* config_file) {
   }
   char line_buffer[BUFSIZ];
   config = malloc(sizeof(struct config));
-  struct interface* interface = NULL;
   struct module* module = NULL;
   struct config* current_config = config;
   while (fgets(line_buffer, sizeof(line_buffer), f)) {
@@ -55,46 +54,14 @@ int parse_config(char* config_file) {
         db_connect = malloc(strlen(value) + 1);
         strcpy(db_connect, value);
       } else if (strcasecmp(key, "interface") == 0) {
-        int sd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
-        if (sd > 0) {
-          if (current_config->interface) {
-            current_config->next = malloc(sizeof(struct config));
-            current_config = current_config->next;
-          }
-          interface = malloc(sizeof(struct interface));
-          interface->interface = malloc(strlen(value) + 1);
-          strcpy(interface->interface, value);
-          struct ifreq ifr;
-          memset (&ifr, 0, sizeof(ifr));
-          snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", interface->interface);
-          if (ioctl(sd, SIOCGIFHWADDR, &ifr) < 0) {
-            fprintf(stderr, "Error '%s' for interface '%s'\n", strerror(errno), value);
-            fclose(f);
-            return 1;
-          }
-          int i;
-          for (i = 0; i < 6; i++)
-            interface->mac_addr[i] = ifr.ifr_hwaddr.sa_data[i];
-          close(sd);
-          current_config->interface = interface;
-        } else {
-          fprintf(stderr, "Error '%s' for interface '%s'\n", strerror(errno), value);
-          fclose(f);
-          return 1;
+        if (current_config->interface) {
+          current_config->next = malloc(sizeof(struct config));
+          current_config = current_config->next;
         }
-      } else if (strcasecmp(key, "range") == 0) {
-        if (interface == NULL) {
-          fprintf(stderr, "Missing the interface key, this has to be defined before range.\n");
-          return 0;
-        }
-        interface->range = malloc(strlen(value) + 1);
-        strcpy(interface->range, value);
-        printf("Range for %s is %s\n", interface->interface, interface->range);
-        printf("Mac address for %s is %02x:%02x:%02x:%02x:%02x:%02x\n", interface->interface
-              ,interface->mac_addr[0], interface->mac_addr[1], interface->mac_addr[2], interface->mac_addr[3]
-              ,interface->mac_addr[4], interface->mac_addr[5]);
+        current_config->interface = malloc(strlen(value) + 1);
+        strcpy(current_config->interface, value);
       } else if (strcasecmp(key, "load_module") == 0) {
-        if (interface == NULL) {
+        if (current_config->interface == NULL) {
           fprintf(stderr, "Missing the interface key, this has to be defined before loading modules.\n");
           return 0;
         }
@@ -162,12 +129,11 @@ int launch_config(struct event_base* base) {
   memset(errbuf, 0, PCAP_ERRBUF_SIZE);
   struct config* config_node = config;
   while (config_node) {
-    struct interface* interface = config_node->interface;
     struct module* mod = config_node->modules;
     while (mod) {
-      if ((mod->pcap_handle = pcap_open_live(interface->interface, BUFSIZ, 0,  512, errbuf)) == NULL)
+      if ((mod->pcap_handle = pcap_open_live(config_node->interface, BUFSIZ, 0,  512, errbuf)) == NULL)
         fprintf(stderr, "ERROR: %s\n", errbuf);
-      else if (pcap_lookupnet(interface->interface, &netaddr, &mask, errbuf) == -1)
+      else if (pcap_lookupnet(config_node->interface, &netaddr, &mask, errbuf) == -1)
         fprintf(stderr, "ERROR: %s\n", errbuf);
       else {
         pcaprule_function* rule_func = dlsym(mod->mod_handle, "getPcapRule");

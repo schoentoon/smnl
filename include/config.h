@@ -27,7 +27,7 @@ typedef char* pcaprule_function();
 typedef void pcap_packet_callback(const unsigned char *packet, struct pcap_pkthdr pkthdr, void* context);
 
 struct config {
-  struct interface* interface;
+  char* interface;
   struct module* modules;
   struct config* next;
 };
@@ -38,14 +38,6 @@ struct module {
   pcap_t *pcap_handle;
   pcap_packet_callback *packet_callback;
   struct module* next;
-};
-
-static struct config* config;
-
-struct interface {
-  char* interface;
-  char* range;
-  unsigned char mac_addr[6];
 };
 
 int parse_config(char* config_file);
