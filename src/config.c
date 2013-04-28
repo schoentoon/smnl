@@ -100,7 +100,12 @@ int parse_config(char* config_file) {
         void* mod_handle = dlopen(value, RTLD_LAZY);
         if (mod_handle) {
           module = malloc(sizeof(struct module));
-          module->module = mod_handle;
+          module->mod_handle = mod_handle;
+          if (dlsym(mod_handle, "getPcapRule") == NULL) {
+            fprintf(stderr, "Module '%s' doesn't seem to have the function getPcapRule(), which is required.\n", value);
+            fclose(f);
+            return 0;
+          }
           init_function *init = dlsym(mod_handle, "initContext");
           if (init)
             module->context = (*init)();
@@ -118,7 +123,7 @@ int parse_config(char* config_file) {
           return 0;
         }
       } else if (module) {
-        parseconfig_function* parse_config = dlsym(module->module, "parseConfig");
+        parseconfig_function* parse_config = dlsym(module->mod_handle, "parseConfig");
         if (parse_config)
           parse_config(key, value, module->context);
         else

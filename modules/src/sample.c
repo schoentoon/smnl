@@ -37,3 +37,8 @@ void parseConfig(char* key, char* value, void* context) {
     strcpy(ctx->testvar, value);
   }
 };
+
+char* getPcapRule() {
+  fprintf(stderr, "getPcapRule();\n");
+  return "arp";
+};

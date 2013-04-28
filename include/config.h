@@ -20,6 +20,7 @@
 
 typedef void* init_function();
 typedef void parseconfig_function(char* key, char* value, void* context);
+typedef char* pcaprule_function();
 
 struct config {
   struct interface* interface;
@@ -28,7 +29,7 @@ struct config {
 };
 
 struct module {
-  void* module;
+  void* mod_handle;
   void* context;
   struct module* next;
 };
