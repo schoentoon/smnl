@@ -131,20 +131,19 @@ int launch_config(struct event_base* base) {
   while (config_node) {
     struct module* mod = config_node->modules;
     while (mod) {
-      if ((mod->pcap_handle = pcap_open_live(config_node->interface, BUFSIZ, 0,  512, errbuf)) == NULL)
-        fprintf(stderr, "ERROR: %s\n", errbuf);
-      else if (pcap_lookupnet(config_node->interface, &netaddr, &mask, errbuf) == -1)
-        fprintf(stderr, "ERROR: %s\n", errbuf);
-      else {
-        pcaprule_function* rule_func = dlsym(mod->mod_handle, "getPcapRule");
-        if (pcap_compile(mod->pcap_handle, &filter, rule_func(), 1, mask) == -1)
-          fprintf(stderr, "ERROR: %s\n", pcap_geterr(mod->pcap_handle));
-        else if (pcap_setfilter(mod->pcap_handle, &filter) == -1)
-          fprintf(stderr, "ERROR: %s\n", pcap_geterr(mod->pcap_handle));
+      pre_capture_function* precapture_func = dlsym(mod->mod_handle, "preCapture");
+      if ((precapture_func && precapture_func(base)) || precapture_func == NULL) {
+        if ((mod->pcap_handle = pcap_open_live(config_node->interface, BUFSIZ, 0,  512, errbuf)) == NULL)
+          fprintf(stderr, "ERROR: %s\n", errbuf);
+        else if (pcap_lookupnet(config_node->interface, &netaddr, &mask, errbuf) == -1)
+          fprintf(stderr, "ERROR: %s\n", errbuf);
         else {
-          pre_capture_function* precapture_func = dlsym(mod->mod_handle, "preCapture");
-          if ((precapture_func && precapture_func(base)) || precapture_func == NULL) {
-            fprintf(stderr, "Yup...\n");
+          pcaprule_function* rule_func = dlsym(mod->mod_handle, "getPcapRule");
+          if (pcap_compile(mod->pcap_handle, &filter, rule_func(), 1, mask) == -1)
+            fprintf(stderr, "ERROR: %s\n", pcap_geterr(mod->pcap_handle));
+          else if (pcap_setfilter(mod->pcap_handle, &filter) == -1)
+            fprintf(stderr, "ERROR: %s\n", pcap_geterr(mod->pcap_handle));
+          else {
             struct event* ev = event_new(base, pcap_fileno(mod->pcap_handle), EV_READ|EV_PERSIST, pcap_callback, mod);
             event_add(ev, NULL);
           }

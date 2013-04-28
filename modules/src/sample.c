@@ -55,15 +55,15 @@ int preCapture(struct event_base* base) {
 #define ARP_REPLY 2
 
 typedef struct arphdr {
-    u_int16_t htype;
-    u_int16_t ptype;
-    u_char hlen;
-    u_char plen;
-    u_int16_t oper;
-    u_char sha[6];
-    u_char spa[4];
-    u_char tha[6];
-    u_char tpa[4];
+  u_int16_t htype;
+  u_int16_t ptype;
+  u_char hlen;
+  u_char plen;
+  u_int16_t oper;
+  u_char sha[6];
+  u_char spa[4];
+  u_char tha[6];
+  u_char tpa[4];
 } arphdr_t;
 
 void packetCallback(const unsigned char *packet, struct pcap_pkthdr pkthdr, void* context) {
