@@ -44,7 +44,7 @@ int parse_config(char* config_file) {
   config = malloc(sizeof(struct config));
   struct interface* interface = NULL;
   struct module* module = NULL;
-  struct config* current_config = NULL;
+  struct config* current_config = config;
   while (fgets(line_buffer, sizeof(line_buffer), f)) {
     if (strlen(line_buffer) == 1 || line_buffer[0] == '#')
       continue;
@@ -57,12 +57,16 @@ int parse_config(char* config_file) {
       } else if (strcasecmp(key, "interface") == 0) {
         int sd = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
         if (sd > 0) {
+          if (current_config->interface) {
+            current_config->next = malloc(sizeof(struct config));
+            current_config = current_config->next;
+          }
           interface = malloc(sizeof(struct interface));
           interface->interface = malloc(strlen(value) + 1);
           strcpy(interface->interface, value);
           struct ifreq ifr;
-          memset (&ifr, 0, sizeof (ifr));
-          snprintf(ifr.ifr_name, sizeof (ifr.ifr_name), "%s", interface->interface);
+          memset (&ifr, 0, sizeof(ifr));
+          snprintf(ifr.ifr_name, sizeof(ifr.ifr_name), "%s", interface->interface);
           if (ioctl(sd, SIOCGIFHWADDR, &ifr) < 0) {
             fprintf(stderr, "Error '%s' for interface '%s'\n", strerror(errno), value);
             fclose(f);
@@ -72,9 +76,6 @@ int parse_config(char* config_file) {
           for (i = 0; i < 6; i++)
             interface->mac_addr[i] = ifr.ifr_hwaddr.sa_data[i];
           close(sd);
-          current_config = config;
-          while (current_config->next != NULL)
-            current_config = current_config->next;
           current_config->interface = interface;
         } else {
           fprintf(stderr, "Error '%s' for interface '%s'\n", strerror(errno), value);
@@ -136,5 +137,46 @@ int parse_config(char* config_file) {
     }
   }
   fclose(f);
+  return 1;
+};
+
+void pcap_callback(evutil_socket_t fd, short what, void *arg) {
+  struct module* mod = (struct module*) arg;
+  struct pcap_pkthdr pkthdr;
+  const unsigned char *packet=NULL;
+  while ((packet = pcap_next(mod->pcap_handle, &pkthdr)) != NULL) {
+    printf("\n\nReceived Packet Size: %d bytes\n", pkthdr.len); 
+  }
+};
+
+int launch_config(struct event_base* base) {
+  bpf_u_int32 netaddr = 0, mask = 0;
+  struct bpf_program filter;
+  char errbuf[PCAP_ERRBUF_SIZE];
+  memset(errbuf, 0, PCAP_ERRBUF_SIZE);
+  struct config* config_node = config;
+  while (config_node) {
+    struct interface* interface = config_node->interface;
+    struct module* mod = config_node->modules;
+    while (mod) {
+      if ((mod->pcap_handle = pcap_open_live(interface->interface, BUFSIZ, 0,  512, errbuf)) == NULL)
+        fprintf(stderr, "ERROR: %s\n", errbuf);
+      else if (pcap_lookupnet(interface->interface, &netaddr, &mask, errbuf) == -1)
+        fprintf(stderr, "ERROR: %s\n", errbuf);
+      else {
+        pcaprule_function* rule_func = dlsym(mod->mod_handle, "getPcapRule");
+        if (pcap_compile(mod->pcap_handle, &filter, rule_func(), 1, mask) == -1)
+          fprintf(stderr, "ERROR: %s\n", pcap_geterr(mod->pcap_handle));
+        else if (pcap_setfilter(mod->pcap_handle, &filter) == -1)
+          fprintf(stderr, "ERROR: %s\n", pcap_geterr(mod->pcap_handle));
+        else {
+          struct event* ev = event_new(base, pcap_fileno(mod->pcap_handle), EV_READ|EV_PERSIST, pcap_callback, mod);
+          event_add(ev, NULL);
+        }
+      }
+      mod = mod->next;
+    }
+    config_node = config_node->next;
+  }
   return 1;
 };

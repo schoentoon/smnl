@@ -18,6 +18,9 @@
 #ifndef _CONFIG_H
 #define _CONFIG_H
 
+#include <pcap.h>
+#include <event2/event.h>
+
 typedef void* init_function();
 typedef void parseconfig_function(char* key, char* value, void* context);
 typedef char* pcaprule_function();
@@ -31,6 +34,7 @@ struct config {
 struct module {
   void* mod_handle;
   void* context;
+  pcap_t *pcap_handle;
   struct module* next;
 };
 
@@ -43,5 +47,7 @@ struct interface {
 };
 
 int parse_config(char* config_file);
+
+int launch_config(struct event_base* base);
 
 #endif //_CONFIG_H
