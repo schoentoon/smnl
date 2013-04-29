@@ -74,9 +74,10 @@ int parse_config(char* config_file) {
             fclose(f);
             return 0;
           } else {
-            module->packet_callback = dlsym(mod_handle, "packetCallback");
-            if (module->packet_callback == NULL) {
-              fprintf(stderr, "Module '%s' doesn't seem to have the function packetCallback(), which is required.\n", value);
+            module->rawpacket_callback = dlsym(mod_handle, "rawPacketCallback");
+            module->ipv4_udp_callback = dlsym(mod_handle, "IPv4UDPCallback");
+            if (module->rawpacket_callback == NULL || module->ipv4_udp_callback) {
+              fprintf(stderr, "Module '%s' doesn't seem to have a callback function, which is required.\n", value);
               fclose(f);
               return 0;
             }
@@ -118,8 +119,18 @@ void pcap_callback(evutil_socket_t fd, short what, void *arg) {
   struct module* mod = (struct module*) arg;
   struct pcap_pkthdr pkthdr;
   const unsigned char *packet=NULL;
-  while ((packet = pcap_next(mod->pcap_handle, &pkthdr)) != NULL)
-    mod->packet_callback(packet, pkthdr, mod->context);
+  while ((packet = pcap_next(mod->pcap_handle, &pkthdr)) != NULL) {
+    if (mod->rawpacket_callback)
+      mod->rawpacket_callback(packet, pkthdr, mod->context);
+    else if (mod->ipv4_udp_callback) {
+      struct ipv4_header* ipv4 = getIPv4Header(packet);
+      if (ipv4) {
+        struct udp_header* udp = getUDPHeaderFromIPv4(packet, ipv4);
+        if (udp)
+          mod->ipv4_udp_callback(ipv4, udp, mod->context);
+      }
+    }
+  }
 };
 
 int launch_config(struct event_base* base) {

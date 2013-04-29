@@ -6,7 +6,7 @@ DEFINES:= $(DEFINES)
 CC     := gcc
 BINARY := smnl
 MODULES:= modules/sample.so
-DEPS   := build/main.o build/postgres.o build/config.o
+DEPS   := build/main.o build/postgres.o build/config.o build/headers.o
 
 .PHONY: all clean dev clang modules
 
@@ -28,6 +28,9 @@ build/postgres.o: src/postgres.c include/postgres.h
 
 build/config.o: src/config.c include/config.h
 	$(CC) $(CFLAGS) $(DEFINES) $(INC) -Wno-format -c -o build/config.o src/config.c
+
+build/headers.o: src/headers.c include/headers.h
+	$(CC) $(CFLAGS) $(DEFINES) $(INC) -c -o build/headers.o src/headers.c
 
 bin/smnl: $(DEPS)
 	$(CC) $(CFLAGS) $(DEFINES) $(INC) -o bin/$(BINARY) $(DEPS) $(LFLAGS)

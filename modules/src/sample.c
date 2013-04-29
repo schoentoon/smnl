@@ -66,7 +66,7 @@ typedef struct arphdr {
   u_char tpa[4];
 } arphdr_t;
 
-void packetCallback(const unsigned char *packet, struct pcap_pkthdr pkthdr, void* context) {
+void rawPacketCallback(const unsigned char *packet, struct pcap_pkthdr pkthdr, void* context) {
   fprintf(stderr, "packetCallback(%p, %p, %p);\n", packet, &pkthdr, context);
   arphdr_t *arpheader = (struct arphdr*) (packet + 14);
   if ((arpheader->tha[0] == 0x00 && arpheader->tha[1] == 0x00 && arpheader->tha[2] == 0x00

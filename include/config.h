@@ -18,6 +18,8 @@
 #ifndef _CONFIG_H
 #define _CONFIG_H
 
+#include "headers.h"
+
 #include <pcap.h>
 #include <event2/event.h>
 
@@ -25,7 +27,8 @@ typedef void* init_function();
 typedef void parseconfig_function(char* key, char* value, void* context);
 typedef char* pcaprule_function(void* context);
 typedef int pre_capture_function(struct event_base* base);
-typedef void pcap_packet_callback(const unsigned char *packet, struct pcap_pkthdr pkthdr, void* context);
+typedef void pcap_rawpacket_callback(const unsigned char *packet, struct pcap_pkthdr pkthdr, void* context);
+typedef void pcap_ipv4_udp_callback(struct ipv4_header* ipv4, struct udp_header* udp, void* context);
 
 struct config {
   char* interface;
@@ -37,7 +40,8 @@ struct module {
   void* mod_handle;
   void* context;
   pcap_t *pcap_handle;
-  pcap_packet_callback *packet_callback;
+  pcap_rawpacket_callback *rawpacket_callback;
+  pcap_ipv4_udp_callback  *ipv4_udp_callback;
   struct module* next;
 };
 
