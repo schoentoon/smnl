@@ -33,6 +33,34 @@
    PRIMARY KEY (hwadr, ipadr));
  */
 
+struct arp_module_config {
+  char* table_name;
+  char* macaddr_col;
+  char* ipaddr_col;
+};
+
+void* initContext() {
+  struct arp_module_config* output = malloc(sizeof(struct arp_module_config));
+  output->table_name = "public.arptable";
+  output->macaddr_col = "hwadr";
+  output->ipaddr_col = "ipadr";
+  return output;
+};
+
+void parseConfig(char* key, char* value, void* context) {
+  struct arp_module_config* arp_config = (struct arp_module_config*) context;
+  if (strcasecmp(key, "table_name") == 0) {
+    arp_config->table_name = malloc(strlen(value) + 1);
+    strcpy(arp_config->table_name, value);
+  } else if (strcasecmp(key, "macaddr_col") == 0) {
+    arp_config->macaddr_col = malloc(strlen(value) + 1);
+    strcpy(arp_config->macaddr_col, value);
+  } else if (strcasecmp(key, "ipaddr_col") == 0) {
+    arp_config->ipaddr_col = malloc(strlen(value) + 1);
+    strcpy(arp_config->ipaddr_col, value);
+  }
+};
+
 char* getPcapRule(void* context) {
   return "arp";
 };
@@ -65,14 +93,17 @@ void rawPacketCallback(const unsigned char *packet, struct pcap_pkthdr pkthdr, v
       && arp->tha[3] == 0xFF && arp->tha[4] == 0xFF && arp->tha[5] == 0xFF))
     return;
   if (ntohs(arp->htype) == 1 && ntohs(arp->ptype) == 0x0800) {
+    struct arp_module_config* arp_config = (struct arp_module_config*) context;
     char buf[4096];
-    snprintf(buf, sizeof(buf), "BEGIN;INSERT INTO public.arptable (hwadr, ipadr) VALUES "
+    snprintf(buf, sizeof(buf), "BEGIN;INSERT INTO %s (%s, %s) VALUES "
                                "('%02X:%02X:%02X:%02X:%02X:%02X', '%d.%d.%d.%d');COMMIT;"
+                               ,arp_config->table_name, arp_config->macaddr_col, arp_config->ipaddr_col
                                ,arp->sha[0], arp->sha[1], arp->sha[2], arp->sha[3], arp->sha[4], arp->sha[5]
                                ,arp->spa[0], arp->spa[1], arp->spa[2], arp->spa[3]);
     databaseQuery(buf, queryCallback, NULL);
-    snprintf(buf, sizeof(buf), "BEGIN;INSERT INTO public.arptable (hwadr, ipadr) VALUES "
+    snprintf(buf, sizeof(buf), "BEGIN;INSERT INTO %s (%s, %s) VALUES "
                                "('%02X:%02X:%02X:%02X:%02X:%02X', '%d.%d.%d.%d');COMMIT;"
+                               ,arp_config->table_name, arp_config->macaddr_col, arp_config->ipaddr_col
                                ,arp->tha[0], arp->tha[1], arp->tha[2], arp->tha[3], arp->tha[4], arp->tha[5]
                                ,arp->tpa[0], arp->tpa[1], arp->tpa[2], arp->tpa[3]);
     databaseQuery(buf, queryCallback, NULL);
