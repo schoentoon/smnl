@@ -5,7 +5,7 @@ LFLAGS := -levent -lpq -ldl -lpcap
 DEFINES:= $(DEFINES)
 CC     := gcc
 BINARY := smnl
-MODULES:= modules/sample.so
+MODULES:= modules/sample.so modules/arp.so
 DEPS   := build/main.o build/postgres.o build/config.o build/headers.o
 
 .PHONY: all clean dev clang modules
@@ -37,6 +37,9 @@ bin/smnl: $(DEPS)
 
 modules/sample.so: modules/src/sample.c
 	$(CC) $(CFLAGS) $(MFLAGS) $(DEFINES) $(INC) -o modules/sample.so modules/src/sample.c
+
+modules/arp.so: modules/src/arp.c
+	$(CC) $(CFLAGS) $(MFLAGS) $(DEFINES) $(INC) -o modules/arp.so modules/src/arp.c
 
 clean:
 	rm -rfv bin/$(BINARY) $(DEPS) $(MODULES)
