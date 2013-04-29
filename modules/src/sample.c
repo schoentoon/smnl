@@ -15,6 +15,8 @@
  *  along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#include "headers.h"
+
 #include <pcap.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,7 +45,7 @@ void parseConfig(char* key, char* value, void* context) {
 
 char* getPcapRule(void* context) {
   fprintf(stderr, "getPcapRule(%p);\n", context);
-  return "arp";
+  return "";
 };
 
 int preCapture(struct event_base* base) {
@@ -65,6 +67,10 @@ typedef struct arphdr {
   u_char tha[6];
   u_char tpa[4];
 } arphdr_t;
+
+void IPv4UDPCallback(struct ipv4_header* ipv4, struct udp_header* udp, void* context) {
+  fprintf(stderr, "IPv4UDPCallback(%p, %p, %p);\n", ipv4, udp, context);
+};
 
 void rawPacketCallback(const unsigned char *packet, struct pcap_pkthdr pkthdr, void* context) {
   fprintf(stderr, "packetCallback(%p, %p, %p);\n", packet, &pkthdr, context);
