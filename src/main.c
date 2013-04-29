@@ -48,7 +48,7 @@ int main(int argc, char** argv) {
     }
   }
   struct event_base* event_base = event_base_new();
-  initDatabasePool(event_base, "");
+  initDatabasePool(event_base);
   launch_config(event_base);
   while (1)
     event_base_dispatch(event_base);

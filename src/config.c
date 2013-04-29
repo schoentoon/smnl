@@ -76,7 +76,8 @@ int parse_config(char* config_file) {
           } else {
             module->rawpacket_callback = dlsym(mod_handle, "rawPacketCallback");
             module->ipv4_udp_callback = dlsym(mod_handle, "IPv4UDPCallback");
-            if (module->rawpacket_callback == NULL || module->ipv4_udp_callback == NULL) {
+            if (module->rawpacket_callback || module->ipv4_udp_callback) {
+            } else {
               fprintf(stderr, "Module '%s' doesn't seem to have a callback function, which is required.\n", value);
               fclose(f);
               return 0;
@@ -89,7 +90,7 @@ int parse_config(char* config_file) {
           if (node == NULL)
             current_config->modules = module;
           else {
-            while (node != NULL)
+            while (node->next)
               node = node->next;
             node->next = module;
           }

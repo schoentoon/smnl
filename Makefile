@@ -1,7 +1,7 @@
 CFLAGS := $(CFLAGS) -Wall -O2 -mtune=native -g
 MFLAGS := -shared -fPIC
 INC    := -Iinclude -I/usr/include/postgresql $(INC)
-LFLAGS := -levent -lpq -ldl -lpcap
+LFLAGS := -levent -lpq -ldl -lpcap -Wl,--export-dynamic
 DEFINES:= $(DEFINES)
 CC     := gcc
 BINARY := smnl

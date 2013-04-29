@@ -29,9 +29,8 @@ char* db_connect;
 
 /** Initialize our database pool
  * @param base The event_base used for our internal timer
- * @param conninfo Connection information for postgresql
  */
-void initDatabasePool(struct event_base* base, char* conninfo);
+void initDatabasePool(struct event_base* base);
 
 /** Execute a query on our database pool
  * @param query The query to execute

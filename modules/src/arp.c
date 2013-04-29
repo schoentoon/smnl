@@ -16,6 +16,7 @@
  */
 
 #include "headers.h"
+#include "postgres.h"
 
 #include <pcap.h>
 #include <stdio.h>
@@ -23,6 +24,14 @@
 #include <string.h>
 #include <arpa/inet.h>
 #include <event2/event.h>
+
+/*
+  Table for this module sort of looks like this
+  CREATE TABLE public.arptable (
+   hwadr macaddr,
+   ipadr inet,
+   PRIMARY KEY (hwadr, ipadr));
+ */
 
 char* getPcapRule(void* context) {
   return "arp";
@@ -43,27 +52,29 @@ typedef struct arphdr {
   u_char tpa[4];
 } arphdr_t;
 
+void queryCallback(PGresult* res, void* context, char* query) {
+  if (PQresultStatus(res) != PGRES_COMMAND_OK)
+    fprintf(stderr, "Query: '%s' returned error\n\t%s\n", query, PQresultErrorMessage(res));
+};
+
 void rawPacketCallback(const unsigned char *packet, struct pcap_pkthdr pkthdr, void* context) {
-  arphdr_t *arpheader = (struct arphdr*) (packet + 14);
-  if ((arpheader->tha[0] == 0x00 && arpheader->tha[1] == 0x00 && arpheader->tha[2] == 0x00
-      && arpheader->tha[3] == 0x00 && arpheader->tha[4] == 0x00 && arpheader->tha[5] == 0x00)
-      || (arpheader->tha[0] == 0xFF && arpheader->tha[1] == 0xFF && arpheader->tha[2] == 0xFF
-      && arpheader->tha[3] == 0xFF && arpheader->tha[4] == 0xFF && arpheader->tha[5] == 0xFF))
+  arphdr_t *arp = (struct arphdr*) (packet + 14);
+  if ((arp->tha[0] == 0x00 && arp->tha[1] == 0x00 && arp->tha[2] == 0x00
+      && arp->tha[3] == 0x00 && arp->tha[4] == 0x00 && arp->tha[5] == 0x00)
+      || (arp->tha[0] == 0xFF && arp->tha[1] == 0xFF && arp->tha[2] == 0xFF
+      && arp->tha[3] == 0xFF && arp->tha[4] == 0xFF && arp->tha[5] == 0xFF))
     return;
-  if (ntohs(arpheader->htype) == 1 && ntohs(arpheader->ptype) == 0x0800) {
-    int i;
-    printf("Sender MAC: ");
-    for (i = 0; i < 6; i++)
-      printf("%02X%s", arpheader->sha[i], (i != 5) ? ":" : "");
-    printf("\nSender IP: ");
-    for (i = 0; i < 4; i++)
-      printf("%d%s", arpheader->spa[i], (i != 3) ? "." : "");
-    printf("\nTarget MAC: ");
-    for(i = 0; i < 6; i++)
-      printf("%02X%s", arpheader->tha[i], (i != 5) ? ":" : "");
-    printf("\nTarget IP: ");
-    for(i = 0; i < 4; i++)
-      printf("%d%s", arpheader->tpa[i], (i != 3) ? "." : "");
-    printf("\n");
+  if (ntohs(arp->htype) == 1 && ntohs(arp->ptype) == 0x0800) {
+    char buf[4096];
+    snprintf(buf, sizeof(buf), "BEGIN;INSERT INTO public.arptable (hwadr, ipadr) VALUES "
+                               "('%02X:%02X:%02X:%02X:%02X:%02X', '%d.%d.%d.%d');COMMIT;"
+                               ,arp->sha[0], arp->sha[1], arp->sha[2], arp->sha[3], arp->sha[4], arp->sha[5]
+                               ,arp->spa[0], arp->spa[1], arp->spa[2], arp->spa[3]);
+    databaseQuery(buf, queryCallback, NULL);
+    snprintf(buf, sizeof(buf), "BEGIN;INSERT INTO public.arptable (hwadr, ipadr) VALUES "
+                               "('%02X:%02X:%02X:%02X:%02X:%02X', '%d.%d.%d.%d');COMMIT;"
+                               ,arp->tha[0], arp->tha[1], arp->tha[2], arp->tha[3], arp->tha[4], arp->tha[5]
+                               ,arp->tpa[0], arp->tpa[1], arp->tpa[2], arp->tpa[3]);
+    databaseQuery(buf, queryCallback, NULL);
   }
 };
