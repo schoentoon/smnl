@@ -17,6 +17,8 @@
 
 #include "headers.h"
 
+#include <stdio.h>
+
 char getIpVersion(const unsigned char *packet) {
   struct ethernet_header *ethernet = (struct ethernet_header*) packet;
   if (ntohs(ethernet->ether_type) == IPv6_ETHERTYPE)
