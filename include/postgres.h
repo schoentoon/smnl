@@ -31,7 +31,9 @@ struct connection_struct {
   PGconn *conn;
   struct query_struct *queries;
   unsigned int query_count;
-  unsigned int idle_ticker;
+  unsigned char idle_ticker;
+  unsigned char autocommit;
+  unsigned char since_last_commit;
 };
 
 /** Initialize our database pool

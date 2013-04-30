@@ -153,6 +153,7 @@ static void arping_timer(evutil_socket_t fd, short event, void *arg) {
 int preCapture(struct event_base* base, char* interface, void* context) {
   struct arp_module_config* arp_config = (struct arp_module_config*) context;
   arp_config->database = initDatabase(base);
+  arp_config->database->autocommit = 10;
   if (arp_config->probe_interval > 0 && arp_config->probe_ranges[0][0] > 0 && arp_config->probe_ranges[0][1] > 0) {
     struct arping_info* info = malloc(sizeof(struct arping_info));
     info->arp_config = arp_config;
@@ -198,7 +199,6 @@ void rawPacketCallback(const unsigned char *packet, struct pcap_pkthdr pkthdr, v
   if (ntohs(arp->htype) == 1 && ntohs(arp->ptype) == 0x0800) {
     struct arp_module_config* arp_config = (struct arp_module_config*) context;
     char buf[4096];
-    databaseQuery(arp_config->database, "BEGIN", queryCallback, NULL);
     if (arp->spa[0] && validateMAC(arp->sha)) {
       snprintf(buf, sizeof(buf), "INSERT INTO %s (%s, %s) VALUES "
                                 "('%02X:%02X:%02X:%02X:%02X:%02X', '%d.%d.%d.%d')"
@@ -215,7 +215,5 @@ void rawPacketCallback(const unsigned char *packet, struct pcap_pkthdr pkthdr, v
                                 ,arp->tpa[0], arp->tpa[1], arp->tpa[2], arp->tpa[3]);
       databaseQuery(arp_config->database, buf, queryCallback, NULL);
     }
-    if (buf[0] != 0)
-      databaseQuery(arp_config->database, "COMMIT", queryCallback, NULL);
   }
 };

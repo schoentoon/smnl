@@ -35,11 +35,14 @@ struct query_struct {
 char* db_connect = "";
 
 static void pq_timer(evutil_socket_t fd, short event, void *arg);
+static int highPriorityDatabaseQuery(struct connection_struct* conn, char* query, void (*callback)(PGresult*,void*,char*), void* context);
 
 struct connection_struct* initDatabase(struct event_base* base) {
   struct connection_struct* database = malloc(sizeof(struct connection_struct));
   database->query_count = 0;
   database->idle_ticker = 0;
+  database->autocommit = 0;
+  database->since_last_commit = 0;
   database->queries = NULL;
   database->conn = NULL;
   struct event* timer = event_new(base, -1, EV_PERSIST, pq_timer, database);
@@ -51,12 +54,11 @@ struct connection_struct* initDatabase(struct event_base* base) {
   return database;
 }
 
-/* TODO This should be possible without an ugly timer like this
- * It should be possible by listening for events on the file
- * descriptor returned by PQsocket, as described in the following post
- * http://jughead-digest.blogspot.nl/2007/12/asynchronous-sql-with-libevent-and.html
- * I would use that code out of the box if it wasn't for libevent1.4
- */
+void resetSinceLastCommit(PGresult* res, void* context, char* query) {
+  struct connection_struct* database = (struct connection_struct*) context;
+  database->since_last_commit = 0;
+};
+
 static void pq_timer(evutil_socket_t fd, short event, void *arg) {
   struct connection_struct* database = (struct connection_struct*) arg;
   if (database->queries) {
@@ -67,14 +69,20 @@ static void pq_timer(evutil_socket_t fd, short event, void *arg) {
         fprintf(stderr, "%s\n", PQerrorMessage(database->conn));
         PQfinish(database->conn);
         database->conn = NULL;
-      } else
+      } else {
         PQsetnonblocking(database->conn, 1);
+        highPriorityDatabaseQuery(database, "BEGIN", resetSinceLastCommit, database);
+      }
     } else {
       if (database->queries->sent == 0) {
         PQsendQuery(database->conn, database->queries->query);
         database->queries->sent = 1;
       }
-      if (database->conn && PQconsumeInput(database->conn) && !PQisBusy(database->conn)) {
+      if (database->autocommit && database->since_last_commit > database->autocommit) {
+        highPriorityDatabaseQuery(database, "COMMIT;BEGIN", resetSinceLastCommit, database);
+        database->since_last_commit = 0;
+      }
+      if (PQconsumeInput(database->conn) && !PQisBusy(database->conn)) {
         PGresult* res = PQgetResult(database->conn);
         while (res) {
           if (database->queries->callback)
@@ -82,6 +90,8 @@ static void pq_timer(evutil_socket_t fd, short event, void *arg) {
           PQclear(res);
           res = PQgetResult(database->conn);
         }
+        if (database->autocommit)
+          database->since_last_commit++;
         database->query_count--;
         struct query_struct* old = database->queries;
         database->queries = database->queries->next;
@@ -90,7 +100,9 @@ static void pq_timer(evutil_socket_t fd, short event, void *arg) {
       }
     }
   } else {
-    if (database->conn && ++database->idle_ticker > MAX_IDLE_TICKS) {
+    if (database->conn && database->autocommit && database->since_last_commit)
+      databaseQuery(database, "COMMIT;BEGIN", resetSinceLastCommit, database);
+    else if (database->conn && ++database->idle_ticker > MAX_IDLE_TICKS) {
       PQfinish(database->conn);
       database->conn = NULL;
       database->idle_ticker = 0;
@@ -111,6 +123,29 @@ void appendQueryPool(struct connection_struct* conn, struct query_struct* query)
     conn->query_count++;
   }
 }
+
+static int highPriorityDatabaseQuery(struct connection_struct* conn, char* query, void (*callback)(PGresult*,void*,char*), void* context) {
+  if (query == NULL || conn == NULL)
+    return 0;
+  struct query_struct* query_struct = malloc(sizeof(struct query_struct));
+  if (query_struct == NULL)
+    return 0;
+  query_struct->query = malloc(strlen(query) + 1);
+  strcpy(query_struct->query, query);
+  query_struct->callback = callback;
+  query_struct->context = context;
+  query_struct->sent = 0;
+  query_struct->next = NULL;
+  if (conn->query_count == 0) {
+    conn->queries = query_struct;
+    conn->query_count++;
+  } else {
+    query_struct->next = conn->queries;
+    conn->queries = query_struct;
+    conn->query_count++;
+  }
+  return 1;
+};
 
 int databaseQuery(struct connection_struct* conn, char* query, void (*callback)(PGresult*,void*,char*), void* context)
 {
