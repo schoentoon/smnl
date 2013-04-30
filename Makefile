@@ -1,12 +1,12 @@
 CFLAGS := $(CFLAGS) -Wall -O2 -mtune=native -g
 MFLAGS := -shared -fPIC
 INC    := -Iinclude -I/usr/include/postgresql $(INC)
-LFLAGS := -levent -lpq -ldl -lpcap -Wl,--export-dynamic
+LFLAGS := -levent -lpq -ldl -lpcap -lm -Wl,--export-dynamic
 DEFINES:= $(DEFINES)
 CC     := gcc
 BINARY := smnl
 MODULES:= modules/sample.so modules/arp.so
-DEPS   := build/main.o build/postgres.o build/config.o build/headers.o
+DEPS   := build/main.o build/postgres.o build/config.o build/headers.o build/iputils.o
 
 .PHONY: all clean dev clang modules
 
@@ -31,6 +31,9 @@ build/config.o: src/config.c include/config.h
 
 build/headers.o: src/headers.c include/headers.h
 	$(CC) $(CFLAGS) $(DEFINES) $(INC) -c -o build/headers.o src/headers.c
+
+build/iputils.o: src/iputils.c include/iputils.h
+	$(CC) $(CFLAGS) $(DEFINES) $(INC) -c -o build/iputils.o src/iputils.c
 
 bin/smnl: $(DEPS)
 	$(CC) $(CFLAGS) $(DEFINES) $(INC) -o bin/$(BINARY) $(DEPS) $(LFLAGS)
