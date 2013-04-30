@@ -16,7 +16,6 @@
  */
 
 #include "config.h"
-#include "postgres.h"
 
 #include <getopt.h>
 #include <event2/event.h>
@@ -48,7 +47,6 @@ int main(int argc, char** argv) {
     }
   }
   struct event_base* event_base = event_base_new();
-  initDatabasePool(event_base);
   launch_config(event_base);
   while (1)
     event_base_dispatch(event_base);

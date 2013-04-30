@@ -19,6 +19,23 @@
 #include "postgres.h"
 
 #include <stdio.h>
+#include <stdlib.h>
+
+struct ipv4_module_config {
+  struct connection_struct* database;
+};
+
+void* initContext() {
+  struct ipv4_module_config* output = malloc(sizeof(struct ipv4_module_config));
+  output->database = NULL;
+  return output;
+};
+
+int preCapture(struct event_base* base, char* interface, void* context) {
+  struct ipv4_module_config* ipv4_config = (struct ipv4_module_config*) context;
+  ipv4_config->database = initDatabase(base);
+  return 1;
+};
 
 char* getPcapRule(void* context) {
   return "ip";
@@ -30,19 +47,22 @@ void queryCallback(PGresult* res, void* context, char* query) {
 };
 
 void IPv4Callback(struct ethernet_header* ethernet, struct ipv4_header* ipv4, const unsigned char *packet, struct pcap_pkthdr pkthdr, void* context) {
+  struct ipv4_module_config* ipv4_config = (struct ipv4_module_config*) context;
   fprintf(stderr, "From: %02x:%02x:%02x:%02x:%02x:%02x\t"
          ,ethernet->ether_shost[0], ethernet->ether_shost[1], ethernet->ether_shost[2]
          ,ethernet->ether_shost[3], ethernet->ether_shost[4], ethernet->ether_shost[5]);
   fprintf(stderr, "ip: %s\n", inet_ntoa(ipv4->ip_src));
   char buf[4096];
+  databaseQuery(ipv4_config->database, "BEGIN", queryCallback, NULL);
   snprintf(buf, sizeof(buf), "BEGIN;INSERT INTO addresstable (hwadr, ipadr) VALUES ('%02x:%02x:%02x:%02x:%02x:%02x','%s');COMMIT;"
           ,ethernet->ether_shost[0], ethernet->ether_shost[1], ethernet->ether_shost[2]
           ,ethernet->ether_shost[3], ethernet->ether_shost[4], ethernet->ether_shost[5]
           ,inet_ntoa(ipv4->ip_src));
-  databaseQuery(buf, queryCallback, NULL);
+  databaseQuery(ipv4_config->database, buf, queryCallback, NULL);
   snprintf(buf, sizeof(buf), "BEGIN;INSERT INTO addresstable (hwadr, ipadr) VALUES ('%02x:%02x:%02x:%02x:%02x:%02x','%s');COMMIT;"
           ,ethernet->ether_dhost[0], ethernet->ether_dhost[1], ethernet->ether_dhost[2]
           ,ethernet->ether_dhost[3], ethernet->ether_dhost[4], ethernet->ether_dhost[5]
           ,inet_ntoa(ipv4->ip_dst));
-  databaseQuery(buf, queryCallback, NULL);
+  databaseQuery(ipv4_config->database, buf, queryCallback, NULL);
+  databaseQuery(ipv4_config->database, "COMMIT", queryCallback, NULL);
 };

@@ -27,17 +27,26 @@
 
 char* db_connect;
 
+struct connection_struct {
+  PGconn *conn;
+  struct query_struct *queries;
+  unsigned int query_count;
+  unsigned int idle_ticker;
+};
+
 /** Initialize our database pool
  * @param base The event_base used for our internal timer
+ * @return Basically your private database connection
  */
-void initDatabasePool(struct event_base* base);
+struct connection_struct* initDatabase(struct event_base* base);
 
 /** Execute a query on our database pool
+ * @param conn The database connection to launch the query on
  * @param query The query to execute
  * @param callback The function to call after our query is done
  * @param context A pointer to pass to your callback
  * @return 1 in case the query was valid and put onto our database pool
  */
-int databaseQuery(char* query, void (*callback)(PGresult*,void*,char*), void* context);
+int databaseQuery(struct connection_struct* conn, char* query, void (*callback)(PGresult*,void*,char*), void* context);
 
 #endif //_POSTGRES_H

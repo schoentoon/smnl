@@ -63,6 +63,7 @@ struct arp_module_config {
   char* ipaddr_col;
   unsigned int probe_interval;
   unsigned int probe_ranges[MAX_RANGES][2];
+  struct connection_struct* database;
 };
 
 void* initContext() {
@@ -72,6 +73,7 @@ void* initContext() {
   output->ipaddr_col = "ipadr";
   output->probe_interval = 0;
   memset(output->probe_ranges, 0, sizeof(output->probe_ranges));
+  output->database = NULL;
   return output;
 };
 
@@ -150,6 +152,7 @@ static void arping_timer(evutil_socket_t fd, short event, void *arg) {
 
 int preCapture(struct event_base* base, char* interface, void* context) {
   struct arp_module_config* arp_config = (struct arp_module_config*) context;
+  arp_config->database = initDatabase(base);
   if (arp_config->probe_interval > 0 && arp_config->probe_ranges[0][0] > 0 && arp_config->probe_ranges[0][1] > 0) {
     struct arping_info* info = malloc(sizeof(struct arping_info));
     info->arp_config = arp_config;
@@ -195,21 +198,24 @@ void rawPacketCallback(const unsigned char *packet, struct pcap_pkthdr pkthdr, v
   if (ntohs(arp->htype) == 1 && ntohs(arp->ptype) == 0x0800) {
     struct arp_module_config* arp_config = (struct arp_module_config*) context;
     char buf[4096];
+    databaseQuery(arp_config->database, "BEGIN", queryCallback, NULL);
     if (arp->spa[0] && validateMAC(arp->sha)) {
-      snprintf(buf, sizeof(buf), "BEGIN;INSERT INTO %s (%s, %s) VALUES "
-                                "('%02X:%02X:%02X:%02X:%02X:%02X', '%d.%d.%d.%d');COMMIT;"
+      snprintf(buf, sizeof(buf), "INSERT INTO %s (%s, %s) VALUES "
+                                "('%02X:%02X:%02X:%02X:%02X:%02X', '%d.%d.%d.%d')"
                                 ,arp_config->table_name, arp_config->macaddr_col, arp_config->ipaddr_col
                                 ,arp->sha[0], arp->sha[1], arp->sha[2], arp->sha[3], arp->sha[4], arp->sha[5]
                                 ,arp->spa[0], arp->spa[1], arp->spa[2], arp->spa[3]);
-      databaseQuery(buf, queryCallback, NULL);
+      databaseQuery(arp_config->database, buf, queryCallback, NULL);
     }
     if (arp->tpa[0] && validateMAC(arp->tha)) {
-      snprintf(buf, sizeof(buf), "BEGIN;INSERT INTO %s (%s, %s) VALUES "
-                                "('%02X:%02X:%02X:%02X:%02X:%02X', '%d.%d.%d.%d');COMMIT;"
+      snprintf(buf, sizeof(buf), "INSERT INTO %s (%s, %s) VALUES "
+                                "('%02X:%02X:%02X:%02X:%02X:%02X', '%d.%d.%d.%d')"
                                 ,arp_config->table_name, arp_config->macaddr_col, arp_config->ipaddr_col
                                 ,arp->tha[0], arp->tha[1], arp->tha[2], arp->tha[3], arp->tha[4], arp->tha[5]
                                 ,arp->tpa[0], arp->tpa[1], arp->tpa[2], arp->tpa[3]);
-      databaseQuery(buf, queryCallback, NULL);
+      databaseQuery(arp_config->database, buf, queryCallback, NULL);
     }
+    if (buf[0] != 0)
+      databaseQuery(arp_config->database, "COMMIT", queryCallback, NULL);
   }
 };
