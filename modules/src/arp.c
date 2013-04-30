@@ -153,6 +153,7 @@ static void arping_timer(evutil_socket_t fd, short event, void *arg) {
 int preCapture(struct event_base* base, char* interface, void* context) {
   struct arp_module_config* arp_config = (struct arp_module_config*) context;
   arp_config->database = initDatabase(base);
+  arp_config->database->report_errors = 1;
   arp_config->database->autocommit = 10;
   if (arp_config->probe_interval > 0 && arp_config->probe_ranges[0][0] > 0 && arp_config->probe_ranges[0][1] > 0) {
     struct arping_info* info = malloc(sizeof(struct arping_info));
@@ -179,11 +180,6 @@ char* getPcapRule(void* context) {
   return "arp";
 };
 
-void queryCallback(PGresult* res, void* context, char* query) {
-  if (PQresultStatus(res) != PGRES_COMMAND_OK)
-    fprintf(stderr, "Query: '%s' returned error\n\t%s\n", query, PQresultErrorMessage(res));
-};
-
 int validateMAC(u_char array[]) {
   if (array[0] == 0x00 && array[1] == 0x00 && array[2] == 0x00
     && array[3] == 0x00 && array[4] == 0x00 && array[5] == 0x00)
@@ -205,7 +201,7 @@ void rawPacketCallback(const unsigned char *packet, struct pcap_pkthdr pkthdr, v
                                 ,arp_config->table_name, arp_config->macaddr_col, arp_config->ipaddr_col
                                 ,arp->sha[0], arp->sha[1], arp->sha[2], arp->sha[3], arp->sha[4], arp->sha[5]
                                 ,arp->spa[0], arp->spa[1], arp->spa[2], arp->spa[3]);
-      databaseQuery(arp_config->database, buf, queryCallback, NULL);
+      databaseQuery(arp_config->database, buf, NULL, NULL);
     }
     if (arp->tpa[0] && validateMAC(arp->tha)) {
       snprintf(buf, sizeof(buf), "INSERT INTO %s (%s, %s) VALUES "
@@ -213,7 +209,7 @@ void rawPacketCallback(const unsigned char *packet, struct pcap_pkthdr pkthdr, v
                                 ,arp_config->table_name, arp_config->macaddr_col, arp_config->ipaddr_col
                                 ,arp->tha[0], arp->tha[1], arp->tha[2], arp->tha[3], arp->tha[4], arp->tha[5]
                                 ,arp->tpa[0], arp->tpa[1], arp->tpa[2], arp->tpa[3]);
-      databaseQuery(arp_config->database, buf, queryCallback, NULL);
+      databaseQuery(arp_config->database, buf, NULL, NULL);
     }
   }
 };

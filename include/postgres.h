@@ -34,6 +34,7 @@ struct connection_struct {
   unsigned char idle_ticker;
   unsigned char autocommit;
   unsigned char since_last_commit;
+  unsigned char report_errors : 1;
 };
 
 /** Initialize our database pool

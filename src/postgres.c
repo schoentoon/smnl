@@ -43,6 +43,7 @@ struct connection_struct* initDatabase(struct event_base* base) {
   database->idle_ticker = 0;
   database->autocommit = 0;
   database->since_last_commit = 0;
+  database->report_errors = 0;
   database->queries = NULL;
   database->conn = NULL;
   struct event* timer = event_new(base, -1, EV_PERSIST, pq_timer, database);
@@ -87,6 +88,8 @@ static void pq_timer(evutil_socket_t fd, short event, void *arg) {
         while (res) {
           if (database->queries->callback)
             database->queries->callback(res, database->queries->context, database->queries->query);
+          if (database->report_errors && PQresultStatus(res) != PGRES_COMMAND_OK)
+            fprintf(stderr, "Query: '%s' returned error\n\t%s\n", database->queries->query, PQresultErrorMessage(res));
           PQclear(res);
           res = PQgetResult(database->conn);
         }
