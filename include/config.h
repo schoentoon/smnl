@@ -28,6 +28,7 @@ typedef void parseconfig_function(char* key, char* value, void* context);
 typedef char* pcaprule_function(void* context);
 typedef int pre_capture_function(struct event_base* base, char* interface, void* context);
 typedef void pcap_rawpacket_callback(const unsigned char *packet, struct pcap_pkthdr pkthdr, void* context);
+typedef void pcap_ipv4_callback(struct ipv4_header* ipv4, const unsigned char *packet, struct pcap_pkthdr pkthdr, void* context);
 typedef void pcap_ipv4_udp_callback(struct ipv4_header* ipv4, struct udp_header* udp, void* context);
 
 struct config {
@@ -41,6 +42,7 @@ struct module {
   void* context;
   pcap_t *pcap_handle;
   pcap_rawpacket_callback *rawpacket_callback;
+  pcap_ipv4_callback      *ipv4_callback;
   pcap_ipv4_udp_callback  *ipv4_udp_callback;
   struct module* next;
 };
