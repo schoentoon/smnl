@@ -26,7 +26,7 @@
 typedef void* init_function();
 typedef void parseconfig_function(char* key, char* value, void* context);
 typedef char* pcaprule_function(void* context);
-typedef int pre_capture_function(struct event_base* base);
+typedef int pre_capture_function(struct event_base* base, char* interface, void* context);
 typedef void pcap_rawpacket_callback(const unsigned char *packet, struct pcap_pkthdr pkthdr, void* context);
 typedef void pcap_ipv4_udp_callback(struct ipv4_header* ipv4, struct udp_header* udp, void* context);
 

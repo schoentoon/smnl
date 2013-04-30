@@ -38,8 +38,8 @@ char* getPcapRule(void* context) {
   return "";
 };
 
-int preCapture(struct event_base* base) {
-  fprintf(stderr, "preCapture(%p);\n", base);
+int preCapture(struct event_base* base, char* interface, void* context) {
+  fprintf(stderr, "preCapture(%p, '%s', %p);\n", base, interface, context);
   return 1;
 };
 
