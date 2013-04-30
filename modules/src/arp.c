@@ -161,9 +161,6 @@ int preCapture(struct event_base* base, char* interface, void* context) {
     memcpy(info->src_ip, (void*) &info->interface.ifr_addr.sa_data + 2, 4);
     info->device = malloc(strlen(interface) + 1);
     strcpy(info->device, interface);
-    fprintf(stderr, "device %s\n", info->device);
-    fprintf(stderr, "mac %02X:%02X:%02X:%02X:%02X:%02X\n", info->src_mac[0], info->src_mac[1], info->src_mac[2], info->src_mac[3], info->src_mac[4], info->src_mac[5]);
-    fprintf(stderr, "ip %d.%d.%d.%d\n", info->src_ip[0], info->src_ip[1], info->src_ip[2], info->src_ip[3]);
     struct event* timer = event_new(base, -1, EV_PERSIST, arping_timer, info);
     struct timeval tv;
     evutil_timerclear(&tv);

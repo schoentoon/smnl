@@ -18,6 +18,7 @@
 #ifndef _HEADERS_H
 #define _HEADERS_H
 
+#include <pcap.h>
 #include <arpa/inet.h>
 
 #define ETHER_ADDR_LEN  6
@@ -58,6 +59,8 @@ struct udp_header {
 };
 
 char getIpVersion(const unsigned char *packet);
+
+struct ethernet_header* getEthernetHeader(const unsigned char *packet);
 
 struct ipv4_header* getIPv4Header(const unsigned char *packet);
 

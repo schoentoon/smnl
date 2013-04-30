@@ -124,19 +124,23 @@ void pcap_callback(evutil_socket_t fd, short what, void *arg) {
   while ((packet = pcap_next(mod->pcap_handle, &pkthdr)) != NULL) {
     if (mod->rawpacket_callback)
       mod->rawpacket_callback(packet, pkthdr, mod->context);
+    struct ethernet_header* ethernet_header = NULL;
     struct ipv4_header* ipv4 = NULL;
     if (mod->ipv4_callback) {
+      ethernet_header = getEthernetHeader(packet);
       ipv4 = getIPv4Header(packet);
-      if (ipv4)
-        mod->ipv4_callback(ipv4, packet, pkthdr, mod->context);
+      if (ethernet_header && ipv4)
+        mod->ipv4_callback(ethernet_header, ipv4, packet, pkthdr, mod->context);
     }
     if (mod->ipv4_udp_callback) {
+      if (!ethernet_header)
+        ethernet_header = getEthernetHeader(packet);
       if (!ipv4)
         ipv4 = getIPv4Header(packet);
-      if (ipv4) {
+      if (ethernet_header && ipv4) {
         struct udp_header* udp = getUDPHeaderFromIPv4(packet, ipv4);
         if (udp)
-          mod->ipv4_udp_callback(ipv4, udp, mod->context);
+          mod->ipv4_udp_callback(ethernet_header, ipv4, udp, mod->context);
       }
     }
   }

@@ -43,12 +43,12 @@ int preCapture(struct event_base* base, char* interface, void* context) {
   return 1;
 };
 
-void IPv4Callback(struct ipv4_header* ipv4, const unsigned char *packet, struct pcap_pkthdr pkthdr, void* context) {
-  fprintf(stderr, "IPv4Callback(%p, %p, %p, %p);\n", ipv4, packet, &pkthdr, context);
+void IPv4Callback(struct ethernet_header* ethernet, struct ipv4_header* ipv4, const unsigned char *packet, struct pcap_pkthdr pkthdr, void* context) {
+  fprintf(stderr, "IPv4Callback(%p, %p, %p, %p, %p);\n", ethernet, ipv4, packet, &pkthdr, context);
 };
 
-void IPv4UDPCallback(struct ipv4_header* ipv4, struct udp_header* udp, void* context) {
-  fprintf(stderr, "IPv4UDPCallback(%p, %p, %p);\n", ipv4, udp, context);
+void IPv4UDPCallback(struct ethernet_header* ethernet, struct ipv4_header* ipv4, struct udp_header* udp, void* context) {
+  fprintf(stderr, "IPv4UDPCallback(%p, %p, %p, %p);\n", ethernet, ipv4, udp, context);
 };
 
 void rawPacketCallback(const unsigned char *packet, struct pcap_pkthdr pkthdr, void* context) {

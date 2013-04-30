@@ -31,6 +31,10 @@ char getIpVersion(const unsigned char *packet) {
 #define IP_HL(ip) (((ip)->ip_vhl) & 0x0f)
 #define IPV4_VERSION(ip) (((ip)->ip_vhl) >> 4)
 
+struct ethernet_header* getEthernetHeader(const unsigned char *packet) {
+  return (struct ethernet_header*) packet;
+};
+
 struct ipv4_header* getIPv4Header(const unsigned char *packet) {
   if (getIpVersion(packet) == 4) {
     struct ipv4_header* output = (struct ipv4_header*) (packet + SIZE_ETHERNET);
