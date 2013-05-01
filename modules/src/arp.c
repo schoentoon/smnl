@@ -33,11 +33,34 @@
 #include <event2/event.h>
 
 /*
-  Table for this module sort of looks like this
-  CREATE TABLE public.arptable (
-   hwadr macaddr,
-   ipadr inet,
-   PRIMARY KEY (hwadr, ipadr));
+  You can create a nice table with essentially the running time of
+  a subnet of hosts with this module (assuming you have the prober on).
+  You just need your table to look something like this, the rule here is important.
+  As without it most insert queries would fail (and therefor your transactions would
+  abort). If you really want to have this table with running time of hosts keep in
+  mind that mobile devices handle arp slightly different making this method kind of
+  unreliable. If you're running this on a gateway you can essentially update this
+  table using the data coming from that (ipv4.so) to make it more relialble.
+
+  CREATE TABLE arptable (hwadr macaddr NOT NULL
+                        ,ipadr inet NOT NULL
+                        ,first_seen timestamp with time zone NOT NULL DEFAULT now()
+                        ,last_seen timestamp with time zone NOT NULL DEFAULT now()
+                        ,CONSTRAINT arptable_pkey PRIMARY KEY (last_seen, hwadr, ipadr));
+
+  CREATE OR REPLACE RULE update_arptable AS
+         ON INSERT TO arptable
+  WHERE (SELECT (now() - '00:05:00'::interval) < max(arptable.last_seen)
+         FROM arptable
+         WHERE arptable.ipadr = new.ipadr
+         AND arptable.hwadr = new.hwadr)
+         DO INSTEAD UPDATE arptable SET last_seen = now()
+                    WHERE arptable.ipadr = new.ipadr
+                    AND arptable.hwadr = new.hwadr
+                    AND arptable.last_seen = (SELECT max(arptable.last_seen) AS max
+                                              FROM arptable
+                                              WHERE arptable.ipadr = new.ipadr
+                                              AND arptable.hwadr = new.hwadr);
  */
 
 #define ARP_REQUEST 1
