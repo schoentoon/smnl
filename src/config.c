@@ -44,7 +44,9 @@ int parse_config(char* config_file) {
   config = malloc(sizeof(struct config));
   struct module* module = NULL;
   struct config* current_config = config;
+  unsigned int line_count = 0;
   while (fgets(line_buffer, sizeof(line_buffer), f)) {
+    line_count++;
     if (strlen(line_buffer) == 1 || line_buffer[0] == '#')
       continue;
     char key[MAXLINE];
@@ -62,6 +64,7 @@ int parse_config(char* config_file) {
         strcpy(current_config->interface, value);
       } else if (strcasecmp(key, "load_module") == 0) {
         if (current_config->interface == NULL) {
+          fprintf(stderr, "Error on line %zd\t", line_count);
           fprintf(stderr, "Missing the interface key, this has to be defined before loading modules.\n");
           return 0;
         }
@@ -70,6 +73,7 @@ int parse_config(char* config_file) {
           module = malloc(sizeof(struct module));
           module->mod_handle = mod_handle;
           if (dlsym(mod_handle, "getPcapRule") == NULL) {
+            fprintf(stderr, "Error on line %zd\t", line_count);
             fprintf(stderr, "Module '%s' doesn't seem to have the function getPcapRule(), which is required.\n", value);
             fclose(f);
             return 0;
@@ -79,6 +83,7 @@ int parse_config(char* config_file) {
             module->ipv4_udp_callback = dlsym(mod_handle, "IPv4UDPCallback");
             if (module->rawpacket_callback || module-> ipv4_callback || module->ipv4_udp_callback) {
             } else {
+              fprintf(stderr, "Error on line %zd\t", line_count);
               fprintf(stderr, "Module '%s' doesn't seem to have a callback function, which is required.\n", value);
               fclose(f);
               return 0;
@@ -96,6 +101,7 @@ int parse_config(char* config_file) {
             node->next = module;
           }
         } else {
+          fprintf(stderr, "Error on line %zd\t", line_count);
           fprintf(stderr, "There was an error while loading module '%s'.\n", dlerror());
           fclose(f);
           return 0;
@@ -104,11 +110,14 @@ int parse_config(char* config_file) {
         parseconfig_function* parse_config = dlsym(module->mod_handle, "parseConfig");
         if (parse_config)
           parse_config(key, value, module->context);
-        else
+        else {
+          fprintf(stderr, "Warning on line %zd\t", line_count);
           fprintf(stderr, "You specified a value for this module, but this module doesn't accept additional options.\n");
+        }
       }
     } else {
-      fprintf(stderr, "There was an error while parsing the following line\n%s", line_buffer);
+      fprintf(stderr, "Error on line %zd\t", line_count);
+      fprintf(stderr, "There was an error while parsing this line.\n", line_buffer);
       fclose(f);
       return 0;
     }

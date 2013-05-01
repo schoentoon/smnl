@@ -21,8 +21,9 @@
 #include <event2/event.h>
 
 static const struct option g_LongOpts[] = {
-  { "help",     no_argument,       0, 'h' },
-  { "config",   required_argument, 0, 'C' },
+  { "help",       no_argument,       0, 'h' },
+  { "config",     required_argument, 0, 'C' },
+  { "test-config",required_argument, 0, 'T' },
   { 0, 0, 0, 0 }
 };
 
@@ -30,13 +31,19 @@ int usage(char* program) {
   fprintf(stderr, "USAGE: %s [options]\n", program);
   fprintf(stderr, "-h, --help\tShow this help.\n");
   fprintf(stderr, "-C, --config\tUse this configuration file.\n");
+  fprintf(stderr, "-T, --test-config\tTest the configuration file.\n");
   return 0;
 };
 
 int main(int argc, char** argv) {
   int iArg, iOptIndex = -1;
-  while ((iArg = getopt_long(argc, argv, "hC:", g_LongOpts, &iOptIndex)) != -1) {
+  while ((iArg = getopt_long(argc, argv, "hC:T:", g_LongOpts, &iOptIndex)) != -1) {
     switch (iArg) {
+      case 'T':
+        if (parse_config(optarg) == 0)
+          return 1;
+        fprintf(stderr, "Config file seems to be fine.\n");
+        return 0;
       case 'C':
         if (parse_config(optarg) == 0)
           return 1;
