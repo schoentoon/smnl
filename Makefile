@@ -45,7 +45,7 @@ modules/arp.so: modules/src/arp.c
 	$(CC) $(CFLAGS) $(MFLAGS) $(DEFINES) $(INC) -o modules/arp.so modules/src/arp.c
 
 modules/ipv4.so: modules/src/ipv4.c
-	$(CC) $(CFLAGS) $(MFLAGS) $(DEFINES) $(INC) -o modules/ipv4.so modules/src/ipv4.c
+	$(CC) $(CFLAGS) $(MFLAGS) $(DEFINES) $(INC) -Wno-format -o modules/ipv4.so modules/src/ipv4.c
 
 clean:
 	rm -rfv bin/$(BINARY) $(DEPS) $(MODULES)
