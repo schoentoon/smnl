@@ -21,7 +21,7 @@
 #include <event2/event.h>
 
 #define MAX_CONNECTIONS 10
-#define MAX_IDLE_TICKS 120
+#define MAX_IDLE_TICKS 100000
 
 #include <libpq-fe.h>
 
@@ -31,7 +31,7 @@ struct connection_struct {
   PGconn *conn;
   struct query_struct *queries;
   unsigned int query_count;
-  unsigned char idle_ticker;
+  unsigned int idle_ticker;
   unsigned char autocommit;
   unsigned char since_last_commit;
   unsigned char report_errors : 1;

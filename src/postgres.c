@@ -50,7 +50,7 @@ struct connection_struct* initDatabase(struct event_base* base) {
   struct timeval tv;
   evutil_timerclear(&tv);
   tv.tv_sec = 0;
-  tv.tv_usec = 100 * 1000;
+  tv.tv_usec = 100;
   event_add(timer, &tv);
   return database;
 }
@@ -100,6 +100,7 @@ static void pq_timer(evutil_socket_t fd, short event, void *arg) {
         database->queries = database->queries->next;
         free(old->query);
         free(old);
+        pq_timer(fd, event, arg);
       }
     }
   } else {
