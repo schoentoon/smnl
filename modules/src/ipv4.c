@@ -79,7 +79,7 @@ int preCapture(struct event_base* base, char* interface, void* context) {
   }
   ipv4_config->database = initDatabase(base);
   ipv4_config->database->report_errors = 1;
-  ipv4_config->database->autocommit = 255;
+  ipv4_config->database->autocommit = 10;
   return 1;
 };
 
@@ -117,7 +117,6 @@ void IPv4Callback(struct ethernet_header* ethernet, struct ipv4_header* ipv4, co
             ,ethernet->ether_shost[0], ethernet->ether_shost[1], ethernet->ether_shost[2]
             ,ethernet->ether_shost[3], ethernet->ether_shost[4], ethernet->ether_shost[5]
             ,inet_ntoa(ipv4->ip_src));
-    fprintf(stderr, "Query: %s\n", buf);
     databaseQuery(ipv4_config->database, buf, NULL, NULL);
   }
   if (validateMAC(ethernet->ether_dhost, ipv4_config)) {
@@ -126,7 +125,6 @@ void IPv4Callback(struct ethernet_header* ethernet, struct ipv4_header* ipv4, co
             ,ethernet->ether_dhost[0], ethernet->ether_dhost[1], ethernet->ether_dhost[2]
             ,ethernet->ether_dhost[3], ethernet->ether_dhost[4], ethernet->ether_dhost[5]
             ,inet_ntoa(ipv4->ip_dst));
-    fprintf(stderr, "Query: %s\n", buf);
     databaseQuery(ipv4_config->database, buf, NULL, NULL);
   }
 };
