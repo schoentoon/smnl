@@ -8,3 +8,9 @@ before_install:
 script:
   - make clean
   - make CC=$CC
+notifications:
+  irc:
+    channels:
+      - "irc.freenode.org#schoentoon"
+    on_success: always
+    on_failure: always
