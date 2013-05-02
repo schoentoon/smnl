@@ -131,6 +131,7 @@ void pcap_callback(evutil_socket_t fd, short what, void *arg) {
   struct pcap_pkthdr pkthdr;
   const unsigned char *packet=NULL;
   while ((packet = pcap_next(mod->pcap_handle, &pkthdr)) != NULL) {
+    dispatchDatabases();
     if (mod->rawpacket_callback)
       mod->rawpacket_callback(packet, pkthdr, mod->context);
     struct ethernet_header* ethernet_header = NULL;

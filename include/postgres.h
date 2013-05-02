@@ -52,4 +52,6 @@ struct connection_struct* initDatabase(struct event_base* base);
  */
 int databaseQuery(struct connection_struct* conn, char* query, void (*callback)(PGresult*,void*,char*), void* context);
 
+void dispatchDatabases();
+
 #endif //_POSTGRES_H

@@ -32,6 +32,11 @@ struct query_struct {
   struct query_struct *next;
 };
 
+static struct database_list {
+  struct connection_struct* db;
+  struct database_list* next;
+} *all_databases;
+
 char* db_connect = "";
 
 static void pq_timer(evutil_socket_t fd, short event, void *arg);
@@ -52,8 +57,25 @@ struct connection_struct* initDatabase(struct event_base* base) {
   tv.tv_sec = 0;
   tv.tv_usec = 100;
   event_add(timer, &tv);
+  if (all_databases == NULL) {
+    all_databases = malloc(sizeof(struct database_list));
+    all_databases->db = database;
+  } else {
+    struct database_list* node = all_databases;
+    while (node->next)
+      node = node->next;
+    node->db = database;
+  }
   return database;
-}
+};
+
+void dispatchDatabases() {
+  struct database_list* node = all_databases;
+  while (node) {
+    pq_timer(0, 0, node->db);
+    node = node->next;
+  };
+};
 
 void resetSinceLastCommit(PGresult* res, void* context, char* query) {
   struct connection_struct* database = (struct connection_struct*) context;
