@@ -120,7 +120,7 @@ int preCapture(struct event_base* base, char* interface, void* context) {
   }
   ipv4_config->database = initDatabase(base);
   ipv4_config->database->report_errors = 1;
-  ipv4_config->database->autocommit = 1;
+  ipv4_config->database->autocommit = 0;
   return 1;
 };
 
@@ -153,8 +153,8 @@ void IPv4Callback(struct ethernet_header* ethernet, struct ipv4_header* ipv4, co
   struct ipv4_module_config* ipv4_config = (struct ipv4_module_config*) context;
   char buf[4096];
   if (validateMAC(ethernet->ether_shost, ipv4_config)) {
-    snprintf(buf, sizeof(buf), "INSERT INTO %s (%s, %s, %s, %s, %s) "
-                               "VALUES ('%02x:%02x:%02x:%02x:%02x:%02x','%s', to_timestamp(%zd.%zd), to_timestamp(%zd.%zd), %d)"
+    snprintf(buf, sizeof(buf), "BEGIN;INSERT INTO %s (%s, %s, %s, %s, %s) "
+                               "VALUES ('%02x:%02x:%02x:%02x:%02x:%02x','%s', to_timestamp(%zd.%zd), to_timestamp(%zd.%zd), %d);COMMIT;"
             ,ipv4_config->table_name, ipv4_config->macaddr_col, ipv4_config->ipaddr_col
             ,ipv4_config->first_seen, ipv4_config->last_seen, ipv4_config->bandwidth
             ,ethernet->ether_shost[0], ethernet->ether_shost[1], ethernet->ether_shost[2]
@@ -164,8 +164,8 @@ void IPv4Callback(struct ethernet_header* ethernet, struct ipv4_header* ipv4, co
     databaseQuery(ipv4_config->database, buf, NULL, NULL);
   }
   if (validateMAC(ethernet->ether_dhost, ipv4_config)) {
-    snprintf(buf, sizeof(buf), "INSERT INTO %s (%s, %s, %s, %s, %s) "
-                               "VALUES ('%02x:%02x:%02x:%02x:%02x:%02x','%s', to_timestamp(%zd.%zd), to_timestamp(%zd.%zd), %d)"
+    snprintf(buf, sizeof(buf), "BEGIN;INSERT INTO %s (%s, %s, %s, %s, %s) "
+                               "VALUES ('%02x:%02x:%02x:%02x:%02x:%02x','%s', to_timestamp(%zd.%zd), to_timestamp(%zd.%zd), %d);COMMIT;"
             ,ipv4_config->table_name, ipv4_config->macaddr_col, ipv4_config->ipaddr_col
             ,ipv4_config->first_seen, ipv4_config->last_seen, ipv4_config->bandwidth
             ,ethernet->ether_dhost[0], ethernet->ether_dhost[1], ethernet->ether_dhost[2]
