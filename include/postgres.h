@@ -30,6 +30,7 @@ char* db_connect;
 struct connection_struct {
   PGconn *conn;
   struct query_struct *queries;
+  struct query_struct *last_query;
   unsigned int query_count;
   unsigned int idle_ticker;
   unsigned char autocommit;

@@ -50,6 +50,7 @@ struct connection_struct* initDatabase(struct event_base* base) {
   database->since_last_commit = 0;
   database->report_errors = 0;
   database->queries = NULL;
+  database->last_query = NULL;
   database->conn = NULL;
   struct event* timer = event_new(base, -1, EV_PERSIST, pq_timer, database);
   struct timeval tv;
@@ -140,12 +141,11 @@ void appendQueryPool(struct connection_struct* conn, struct query_struct* query)
 {
   if (conn->query_count == 0) {
     conn->queries = query;
+    conn->last_query = query;
     conn->query_count++;
   } else {
-    struct query_struct* node = conn->queries;
-    while (node->next)
-      node = node->next;
-    node->next = query;
+    conn->last_query->next = query;
+    conn->last_query = query;
     conn->query_count++;
   }
 }
