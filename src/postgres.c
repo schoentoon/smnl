@@ -111,8 +111,10 @@ static void pq_timer(evutil_socket_t fd, short event, void *arg) {
         while (res) {
           if (database->queries->callback)
             database->queries->callback(res, database->queries->context, database->queries->query);
-          if (database->report_errors && PQresultStatus(res) != PGRES_COMMAND_OK)
+          if (database->report_errors && PQresultStatus(res) != PGRES_COMMAND_OK) {
             fprintf(stderr, "Query: '%s' returned error\n\t%s\n", database->queries->query, PQresultErrorMessage(res));
+            highPriorityDatabaseQuery(database, "ROLLBACK;BEGIN", resetSinceLastCommit, database);
+          }
           PQclear(res);
           res = PQgetResult(database->conn);
         }
