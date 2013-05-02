@@ -33,8 +33,7 @@ struct connection_struct {
   struct query_struct *last_query;
   unsigned int query_count;
   unsigned int idle_ticker;
-  unsigned char autocommit;
-  unsigned char since_last_commit;
+  unsigned char autocommit : 1;
   unsigned char report_errors : 1;
 };
 

@@ -47,7 +47,6 @@ struct connection_struct* initDatabase(struct event_base* base) {
   database->query_count = 0;
   database->idle_ticker = 0;
   database->autocommit = 0;
-  database->since_last_commit = 0;
   database->report_errors = 0;
   database->queries = NULL;
   database->last_query = NULL;
@@ -78,11 +77,6 @@ void dispatchDatabases() {
   };
 };
 
-void resetSinceLastCommit(PGresult* res, void* context, char* query) {
-  struct connection_struct* database = (struct connection_struct*) context;
-  database->since_last_commit = 0;
-};
-
 static void pq_timer(evutil_socket_t fd, short event, void *arg) {
   struct connection_struct* database = (struct connection_struct*) arg;
   if (database->queries) {
@@ -95,31 +89,24 @@ static void pq_timer(evutil_socket_t fd, short event, void *arg) {
         database->conn = NULL;
       } else {
         PQsetnonblocking(database->conn, 1);
-        highPriorityDatabaseQuery(database, "BEGIN", resetSinceLastCommit, database);
+        if (database->autocommit)
+          highPriorityDatabaseQuery(database, "SET AUTOCOMMIT = ON", NULL, NULL);
       }
     } else {
       if (database->queries->sent == 0) {
         PQsendQuery(database->conn, database->queries->query);
         database->queries->sent = 1;
       }
-      if (database->autocommit && database->since_last_commit > database->autocommit) {
-        highPriorityDatabaseQuery(database, "COMMIT;BEGIN", resetSinceLastCommit, database);
-        database->since_last_commit = 0;
-      }
       if (PQconsumeInput(database->conn) && !PQisBusy(database->conn)) {
         PGresult* res = PQgetResult(database->conn);
         while (res) {
           if (database->queries->callback)
             database->queries->callback(res, database->queries->context, database->queries->query);
-          if (database->report_errors && PQresultStatus(res) != PGRES_COMMAND_OK) {
+          if (database->report_errors && PQresultStatus(res) != PGRES_COMMAND_OK)
             fprintf(stderr, "Query: '%s' returned error\n\t%s\n", database->queries->query, PQresultErrorMessage(res));
-            highPriorityDatabaseQuery(database, "ROLLBACK;BEGIN", resetSinceLastCommit, database);
-          }
           PQclear(res);
           res = PQgetResult(database->conn);
         }
-        if (database->autocommit)
-          database->since_last_commit++;
         database->query_count--;
         struct query_struct* old = database->queries;
         database->queries = database->queries->next;
@@ -129,9 +116,7 @@ static void pq_timer(evutil_socket_t fd, short event, void *arg) {
       }
     }
   } else {
-    if (database->conn && database->autocommit && database->since_last_commit)
-      databaseQuery(database, "COMMIT;BEGIN", resetSinceLastCommit, database);
-    else if (database->conn && ++database->idle_ticker > MAX_IDLE_TICKS) {
+    if (database->conn && ++database->idle_ticker > MAX_IDLE_TICKS) {
       PQfinish(database->conn);
       database->conn = NULL;
       database->idle_ticker = 0;

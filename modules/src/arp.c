@@ -177,7 +177,7 @@ int preCapture(struct event_base* base, char* interface, void* context) {
   struct arp_module_config* arp_config = (struct arp_module_config*) context;
   arp_config->database = initDatabase(base);
   arp_config->database->report_errors = 1;
-  arp_config->database->autocommit = 255;
+  arp_config->database->autocommit = 1;
   if (arp_config->probe_interval > 0 && arp_config->probe_ranges[0][0] > 0 && arp_config->probe_ranges[0][1] > 0) {
     struct arping_info* info = malloc(sizeof(struct arping_info));
     info->arp_config = arp_config;
