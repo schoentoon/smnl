@@ -24,10 +24,39 @@
 
 #define MAX_EXCLUDES 256
 
+/*
+ This module expects a column with the following layout, remeber to add the rule too.
+CREATE TABLE addresstable (
+  hwadr macaddr NOT NULL,
+  ipadr inet NOT NULL,
+  first_seen timestamp with time zone NOT NULL DEFAULT now(),
+  last_seen timestamp with time zone NOT NULL DEFAULT now(),
+  bandwidth bigint DEFAULT 0,
+  PRIMARY KEY (last_seen, hwadr, ipadr));
+
+CREATE OR REPLACE RULE update_addresstable AS
+       ON INSERT TO addresstable
+       WHERE (SELECT (now() - '00:05:00'::interval) < max(addresstable.last_seen)
+              FROM addresstable
+              WHERE addresstable.ipadr = new.ipadr
+              AND addresstable.hwadr = new.hwadr)
+              DO INSTEAD UPDATE addresstable SET last_seen = now()
+                                               , bandwidth = addresstable.bandwidth + new.bandwidth
+              WHERE addresstable.ipadr = new.ipadr
+              AND addresstable.hwadr = new.hwadr
+              AND addresstable.last_seen = ((SELECT max(addresstable.last_seen)
+                                             FROM addresstable
+                                             WHERE addresstable.ipadr = new.ipadr
+                                             AND addresstable.hwadr = new.hwadr));
+ */
+
 struct ipv4_module_config {
   char* table_name;
   char* macaddr_col;
   char* ipaddr_col;
+  char* first_seen;
+  char* last_seen;
+  char* bandwidth;
   struct connection_struct* database;
   u_char exclude_table[MAX_EXCLUDES][6];
 };
@@ -37,6 +66,9 @@ void* initContext() {
   output->table_name = NULL;
   output->macaddr_col = NULL;
   output->ipaddr_col = NULL;
+  output->first_seen = "first_seen";
+  output->last_seen = "last_seen";
+  output->bandwidth = "bandwidth";
   output->database = NULL;
   memset(&output->exclude_table, 0, sizeof(output->exclude_table));
   return output;
@@ -53,6 +85,15 @@ void parseConfig(char* key, char* value, void* context) {
   } else if (strcasecmp(key, "ipaddr_col") == 0) {
     ipv4_config->ipaddr_col = malloc(strlen(value) + 1);
     strcpy(ipv4_config->ipaddr_col, value);
+  } else if (strcasecmp(key, "first_seen_col") == 0) {
+    ipv4_config->first_seen = malloc(strlen(value) + 1);
+    strcpy(ipv4_config->first_seen, value);
+  } else if (strcasecmp(key, "last_seen_col") == 0) {
+    ipv4_config->last_seen = malloc(strlen(value) + 1);
+    strcpy(ipv4_config->last_seen, value);
+  } else if (strcasecmp(key, "bandwidth_col") == 0) {
+    ipv4_config->bandwidth = malloc(strlen(value) + 1);
+    strcpy(ipv4_config->bandwidth, value);
   } else if (strcasecmp(key, "exclude") == 0) {
     char mac[6];
     if (sscanf(value, "%02x:%02x:%02x:%02x:%02x:%02x", &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]) == 6) {
@@ -79,7 +120,7 @@ int preCapture(struct event_base* base, char* interface, void* context) {
   }
   ipv4_config->database = initDatabase(base);
   ipv4_config->database->report_errors = 1;
-  ipv4_config->database->autocommit = 10;
+  ipv4_config->database->autocommit = 1;
   return 1;
 };
 
@@ -112,19 +153,25 @@ void IPv4Callback(struct ethernet_header* ethernet, struct ipv4_header* ipv4, co
   struct ipv4_module_config* ipv4_config = (struct ipv4_module_config*) context;
   char buf[4096];
   if (validateMAC(ethernet->ether_shost, ipv4_config)) {
-    snprintf(buf, sizeof(buf), "INSERT INTO %s (%s, %s) VALUES ('%02x:%02x:%02x:%02x:%02x:%02x','%s')"
+    snprintf(buf, sizeof(buf), "INSERT INTO %s (%s, %s, %s, %s, %s) "
+                               "VALUES ('%02x:%02x:%02x:%02x:%02x:%02x','%s', to_timestamp(%zd.%zd), to_timestamp(%zd.%zd), %d)"
             ,ipv4_config->table_name, ipv4_config->macaddr_col, ipv4_config->ipaddr_col
+            ,ipv4_config->first_seen, ipv4_config->last_seen, ipv4_config->bandwidth
             ,ethernet->ether_shost[0], ethernet->ether_shost[1], ethernet->ether_shost[2]
             ,ethernet->ether_shost[3], ethernet->ether_shost[4], ethernet->ether_shost[5]
-            ,inet_ntoa(ipv4->ip_src));
+            ,inet_ntoa(ipv4->ip_src), pkthdr.ts.tv_sec, pkthdr.ts.tv_usec, pkthdr.ts.tv_sec
+            ,pkthdr.ts.tv_usec, pkthdr.caplen);
     databaseQuery(ipv4_config->database, buf, NULL, NULL);
   }
   if (validateMAC(ethernet->ether_dhost, ipv4_config)) {
-    snprintf(buf, sizeof(buf), "INSERT INTO %s (%s, %s) VALUES ('%02x:%02x:%02x:%02x:%02x:%02x','%s')"
+    snprintf(buf, sizeof(buf), "INSERT INTO %s (%s, %s, %s, %s, %s) "
+                               "VALUES ('%02x:%02x:%02x:%02x:%02x:%02x','%s', to_timestamp(%zd.%zd), to_timestamp(%zd.%zd), %d)"
             ,ipv4_config->table_name, ipv4_config->macaddr_col, ipv4_config->ipaddr_col
+            ,ipv4_config->first_seen, ipv4_config->last_seen, ipv4_config->bandwidth
             ,ethernet->ether_dhost[0], ethernet->ether_dhost[1], ethernet->ether_dhost[2]
             ,ethernet->ether_dhost[3], ethernet->ether_dhost[4], ethernet->ether_dhost[5]
-            ,inet_ntoa(ipv4->ip_dst));
+            ,inet_ntoa(ipv4->ip_dst), pkthdr.ts.tv_sec, pkthdr.ts.tv_usec, pkthdr.ts.tv_sec
+            ,pkthdr.ts.tv_usec, pkthdr.caplen);
     databaseQuery(ipv4_config->database, buf, NULL, NULL);
   }
 };
