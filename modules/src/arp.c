@@ -65,6 +65,29 @@
 
 #define ARP_REQUEST 1
 #define ARP_REPLY 2
+#define MAX_RANGES 256
+
+void printSQLSchema(FILE* f) {
+  fprintf(f, "CREATE TABLE arptable (hwadr macaddr NOT NULL\n");
+  fprintf(f, "                      ,ipadr inet NOT NULL\n");
+  fprintf(f, "                      ,first_seen timestamp with time zone NOT NULL DEFAULT now()\n");
+  fprintf(f, "                      ,last_seen timestamp with time zone NOT NULL DEFAULT now()\n");
+  fprintf(f, "                      ,CONSTRAINT arptable_pkey PRIMARY KEY (last_seen, hwadr, ipadr));\n");
+  fprintf(f, "CREATE OR REPLACE RULE update_arptable AS\n");
+  fprintf(f, "       ON INSERT TO arptable\n");
+  fprintf(f, "WHERE (SELECT (now() - '00:05:00'::interval) < max(arptable.last_seen)\n");
+  fprintf(f, "       FROM arptable\n");
+  fprintf(f, "       WHERE arptable.ipadr = new.ipadr\n");
+  fprintf(f, "       AND arptable.hwadr = new.hwadr)\n");
+  fprintf(f, "       DO INSTEAD UPDATE arptable SET last_seen = now()\n");
+  fprintf(f, "                  WHERE arptable.ipadr = new.ipadr\n");
+  fprintf(f, "                  AND arptable.hwadr = new.hwadr\n");
+  fprintf(f, "                  AND arptable.last_seen = (SELECT max(arptable.last_seen) AS max\n");
+  fprintf(f, "                                            FROM arptable\n");
+  fprintf(f, "                                            WHERE arptable.ipadr = new.ipadr\n");
+  fprintf(f, "                                            AND arptable.hwadr = new.hwadr);\n\n\n");
+  fprintf(f, "You can safely change the table name and the column names, make sure you have configured it correctly then.\n");
+};
 
 struct arphdr {
   u_int16_t htype;
@@ -77,8 +100,6 @@ struct arphdr {
   u_char tha[6];
   u_char tpa[4];
 };
-
-#define MAX_RANGES 256
 
 struct arp_module_config {
   char* table_name;

@@ -19,11 +19,13 @@
 
 #include <getopt.h>
 #include <event2/event.h>
+#include <dlfcn.h>
 
 static const struct option g_LongOpts[] = {
   { "help",       no_argument,       0, 'h' },
   { "config",     required_argument, 0, 'C' },
   { "test-config",required_argument, 0, 'T' },
+  { "sql-schema", required_argument, 0, 'S' },
   { 0, 0, 0, 0 }
 };
 
@@ -32,12 +34,13 @@ int usage(char* program) {
   fprintf(stderr, "-h, --help\tShow this help.\n");
   fprintf(stderr, "-C, --config\tUse this configuration file.\n");
   fprintf(stderr, "-T, --test-config\tTest the configuration file.\n");
+  fprintf(stderr, "-S, --sql-schema\tShow the sql schema assumed by this module.\n");
   return 0;
 };
 
 int main(int argc, char** argv) {
   int iArg, iOptIndex = -1;
-  while ((iArg = getopt_long(argc, argv, "hC:T:", g_LongOpts, &iOptIndex)) != -1) {
+  while ((iArg = getopt_long(argc, argv, "hC:T:S:", g_LongOpts, &iOptIndex)) != -1) {
     switch (iArg) {
       case 'T':
         if (parse_config(optarg) == 0)
@@ -48,6 +51,18 @@ int main(int argc, char** argv) {
         if (parse_config(optarg) == 0)
           return 1;
         break;
+      case 'S': {
+        void* mod_handle = dlopen(optarg, RTLD_LAZY);
+        if (mod_handle) {
+          sql_schema_function *sql_schema = dlsym(mod_handle, "printSQLSchema");
+          if (sql_schema)
+            sql_schema(stderr);
+          else
+            fprintf(stderr, "Error: '%s'\n", dlerror());
+        } else
+          fprintf(stderr, "Error: '%s'\n", dlerror());
+        return 0;
+      }
       default:
       case 'h':
         return usage(argv[0]);

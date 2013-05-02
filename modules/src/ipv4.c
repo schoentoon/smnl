@@ -24,31 +24,30 @@
 
 #define MAX_EXCLUDES 256
 
-/*
- This module expects a column with the following layout, remeber to add the rule too.
-CREATE TABLE addresstable (
-  hwadr macaddr NOT NULL,
-  ipadr inet NOT NULL,
-  first_seen timestamp with time zone NOT NULL DEFAULT now(),
-  last_seen timestamp with time zone NOT NULL DEFAULT now(),
-  bandwidth bigint DEFAULT 0,
-  PRIMARY KEY (last_seen, hwadr, ipadr));
-
-CREATE OR REPLACE RULE update_addresstable AS
-       ON INSERT TO addresstable
-       WHERE (SELECT (now() - '00:05:00'::interval) < max(addresstable.last_seen)
-              FROM addresstable
-              WHERE addresstable.ipadr = new.ipadr
-              AND addresstable.hwadr = new.hwadr)
-              DO INSTEAD UPDATE addresstable SET last_seen = now()
-                                               , bandwidth = addresstable.bandwidth + new.bandwidth
-              WHERE addresstable.ipadr = new.ipadr
-              AND addresstable.hwadr = new.hwadr
-              AND addresstable.last_seen = ((SELECT max(addresstable.last_seen)
-                                             FROM addresstable
-                                             WHERE addresstable.ipadr = new.ipadr
-                                             AND addresstable.hwadr = new.hwadr));
- */
+void printSQLSchema(FILE* f) {
+  fprintf(f, "CREATE TABLE addresstable (\n");
+  fprintf(f, "  hwadr macaddr NOT NULL,\n");
+  fprintf(f, "  ipadr inet NOT NULL,\n");
+  fprintf(f, "  first_seen timestamp with time zone NOT NULL DEFAULT now(),\n");
+  fprintf(f, "  last_seen timestamp with time zone NOT NULL DEFAULT now(),\n");
+  fprintf(f, "  bandwidth bigint DEFAULT 0,\n");
+  fprintf(f, "  PRIMARY KEY (last_seen, hwadr, ipadr));\n\n");
+  fprintf(f, "CREATE OR REPLACE RULE update_addresstable AS\n");
+  fprintf(f, "       ON INSERT TO addresstable\n");
+  fprintf(f, "       WHERE (SELECT (now() - '00:05:00'::interval) < max(addresstable.last_seen)\n");
+  fprintf(f, "              FROM addresstable\n");
+  fprintf(f, "              WHERE addresstable.ipadr = new.ipadr\n");
+  fprintf(f, "              AND addresstable.hwadr = new.hwadr)\n");
+  fprintf(f, "              DO INSTEAD UPDATE addresstable SET last_seen = now()\n");
+  fprintf(f, "                                               , bandwidth = addresstable.bandwidth + new.bandwidth\n");
+  fprintf(f, "              WHERE addresstable.ipadr = new.ipadr\n");
+  fprintf(f, "              AND addresstable.hwadr = new.hwadr\n");
+  fprintf(f, "              AND addresstable.last_seen = ((SELECT max(addresstable.last_seen)\n");
+  fprintf(f, "                                             FROM addresstable\n");
+  fprintf(f, "                                             WHERE addresstable.ipadr = new.ipadr\n");
+  fprintf(f, "                                             AND addresstable.hwadr = new.hwadr));\n\n\n");
+  fprintf(f, "You can safely change the table name and the column names, make sure you have configured it correctly then.\n");
+};
 
 struct ipv4_module_config {
   char* table_name;
@@ -63,9 +62,9 @@ struct ipv4_module_config {
 
 void* initContext() {
   struct ipv4_module_config* output = malloc(sizeof(struct ipv4_module_config));
-  output->table_name = NULL;
-  output->macaddr_col = NULL;
-  output->ipaddr_col = NULL;
+  output->table_name = "addresstable";
+  output->macaddr_col = "hwadr";
+  output->ipaddr_col = "ipadr";
   output->first_seen = "first_seen";
   output->last_seen = "last_seen";
   output->bandwidth = "bandwidth";
