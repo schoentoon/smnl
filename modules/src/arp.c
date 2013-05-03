@@ -41,26 +41,6 @@
   mind that mobile devices handle arp slightly different making this method kind of
   unreliable. If you're running this on a gateway you can essentially update this
   table using the data coming from that (ipv4.so) to make it more relialble.
-
-  CREATE TABLE arptable (hwadr macaddr NOT NULL
-                        ,ipadr inet NOT NULL
-                        ,first_seen timestamp with time zone NOT NULL DEFAULT now()
-                        ,last_seen timestamp with time zone NOT NULL DEFAULT now()
-                        ,CONSTRAINT arptable_pkey PRIMARY KEY (last_seen, hwadr, ipadr));
-
-  CREATE OR REPLACE RULE update_arptable AS
-         ON INSERT TO arptable
-  WHERE (SELECT (now() - '00:05:00'::interval) < max(arptable.last_seen)
-         FROM arptable
-         WHERE arptable.ipadr = new.ipadr
-         AND arptable.hwadr = new.hwadr)
-         DO INSTEAD UPDATE arptable SET last_seen = now()
-                    WHERE arptable.ipadr = new.ipadr
-                    AND arptable.hwadr = new.hwadr
-                    AND arptable.last_seen = (SELECT max(arptable.last_seen) AS max
-                                              FROM arptable
-                                              WHERE arptable.ipadr = new.ipadr
-                                              AND arptable.hwadr = new.hwadr);
  */
 
 #define ARP_REQUEST 1
