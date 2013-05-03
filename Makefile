@@ -5,7 +5,7 @@ LFLAGS := -levent -lpq -ldl -lpcap -lm -Wl,--export-dynamic
 DEFINES:= $(DEFINES)
 CC     := gcc
 BINARY := smnl
-MODULES:= modules/sample.so modules/arp.so modules/ipv4.so
+MODULES:= modules/sample.so modules/arp.so modules/ipv4.so modules/dns.so
 DEPS   := build/main.o build/postgres.o build/config.o build/headers.o build/iputils.o
 
 .PHONY: all clean dev clang modules
@@ -46,6 +46,9 @@ modules/arp.so: modules/src/arp.c
 
 modules/ipv4.so: modules/src/ipv4.c
 	$(CC) $(CFLAGS) $(MFLAGS) $(DEFINES) $(INC) -Wno-format -o modules/ipv4.so modules/src/ipv4.c
+
+modules/dns.so: modules/src/dns.c
+	$(CC) $(CFLAGS) $(MFLAGS) $(DEFINES) $(INC) -Wno-format -o modules/dns.so modules/src/dns.c
 
 clean:
 	rm -rfv bin/$(BINARY) $(DEPS) $(MODULES)
