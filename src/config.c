@@ -106,7 +106,7 @@ int parse_config(char* config_file) {
           fclose(f);
           return 0;
         }
-      } else if (module) {
+      } else if (module && module->mod_handle) {
         parseconfig_function* parse_config = dlsym(module->mod_handle, "parseConfig");
         if (parse_config)
           parse_config(key, value, module->context);
@@ -129,7 +129,7 @@ int parse_config(char* config_file) {
 void pcap_callback(evutil_socket_t fd, short what, void *arg) {
   struct module* mod = (struct module*) arg;
   struct pcap_pkthdr pkthdr;
-  const unsigned char *packet=NULL;
+  const unsigned char *packet = NULL;
   while ((packet = pcap_next(mod->pcap_handle, &pkthdr)) != NULL) {
     dispatchDatabases();
     if (mod->rawpacket_callback)
