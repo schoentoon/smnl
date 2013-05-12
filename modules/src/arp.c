@@ -141,6 +141,7 @@ static void arping_timer(evutil_socket_t fd, short event, void *arg) {
   struct arping_info* info = (struct arping_info*) arg;
   static const unsigned int buffer_size = sizeof(struct arphdr) + sizeof(struct ether_header);
   unsigned char buf[buffer_size];
+  memset(buf, 0, sizeof(buf));
   struct ether_header* eth = (struct ether_header*) buf;
   memcpy(eth->ether_dhost, dst_mac, ETHER_ADDR_LEN);
   memcpy(eth->ether_shost, info->src_mac, ETHER_ADDR_LEN);
@@ -157,6 +158,7 @@ static void arping_timer(evutil_socket_t fd, short event, void *arg) {
   memcpy(ah->tha, dst_mac, 6);
   unsigned int cur_range;
   struct sockaddr addr;
+  memset(&addr, 0, sizeof(struct sockaddr));
   strncpy(addr.sa_data, info->device, sizeof(addr.sa_data));
   for (cur_range = 0; cur_range < MAX_RANGES; cur_range++) {
     unsigned int startIp = info->arp_config->probe_ranges[cur_range][0];
