@@ -59,12 +59,15 @@ struct connection_struct* initDatabase(struct event_base* base) {
   event_add(timer, &tv);
   if (all_databases == NULL) {
     all_databases = malloc(sizeof(struct database_list));
+    memset(all_databases, 0, sizeof(struct database_list));
     all_databases->db = database;
   } else {
     struct database_list* node = all_databases;
     while (node->next)
       node = node->next;
-    node->db = database;
+    node->next = malloc(sizeof(struct database_list));
+    memset(node->next, 0, sizeof(struct database_list));
+    node->next->db = database;
   }
   return database;
 };
