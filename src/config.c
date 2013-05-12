@@ -42,6 +42,7 @@ int parse_config(char* config_file) {
   }
   char line_buffer[BUFSIZ];
   config = malloc(sizeof(struct config));
+  memset(config, 0, sizeof(struct config));
   struct module* module = NULL;
   struct config* current_config = config;
   unsigned int line_count = 0;
@@ -52,16 +53,15 @@ int parse_config(char* config_file) {
     char key[MAXLINE];
     char value[MAXLINE];
     if (sscanf(line_buffer, "%[a-z_] = %[^\t\n]", &key, &value) == 2) {
-      if (strcasecmp(key, "dbconnect") == 0) {
-        db_connect = malloc(strlen(value) + 1);
-        strcpy(db_connect, value);
-      } else if (strcasecmp(key, "interface") == 0) {
+      if (strcasecmp(key, "dbconnect") == 0)
+        db_connect = strdup(value);
+      else if (strcasecmp(key, "interface") == 0) {
         if (current_config->interface) {
           current_config->next = malloc(sizeof(struct config));
+          memset(current_config->next, 0, sizeof(struct config));
           current_config = current_config->next;
         }
-        current_config->interface = malloc(strlen(value) + 1);
-        strcpy(current_config->interface, value);
+        current_config->interface = strdup(value);
       } else if (strcasecmp(key, "load_module") == 0) {
         if (current_config->interface == NULL) {
           fprintf(stderr, "Error on line %zd\t", line_count);
@@ -71,9 +71,11 @@ int parse_config(char* config_file) {
         void* mod_handle = dlopen(value, RTLD_LAZY);
         if (mod_handle) {
           module = malloc(sizeof(struct module));
+          memset(module, 0, sizeof(struct module));
           module->mod_handle = mod_handle;
           if (dlsym(mod_handle, "getPcapRule") == NULL) {
             fprintf(stderr, "Error on line %zd\t", line_count);
+            fprintf(stderr, "Error: %s\n", dlerror());
             fprintf(stderr, "Module '%s' doesn't seem to have the function getPcapRule(), which is required.\n", value);
             fclose(f);
             return 0;
@@ -81,8 +83,7 @@ int parse_config(char* config_file) {
             module->rawpacket_callback = dlsym(mod_handle, "rawPacketCallback");
             module->ipv4_callback = dlsym(mod_handle, "IPv4Callback");
             module->ipv4_udp_callback = dlsym(mod_handle, "IPv4UDPCallback");
-            if (module->rawpacket_callback || module-> ipv4_callback || module->ipv4_udp_callback) {
-            } else {
+            if (!(module->rawpacket_callback || module-> ipv4_callback || module->ipv4_udp_callback)) {
               fprintf(stderr, "Error on line %zd\t", line_count);
               fprintf(stderr, "Module '%s' doesn't seem to have a callback function, which is required.\n", value);
               fclose(f);
@@ -171,17 +172,17 @@ int launch_config(struct event_base* base) {
           fprintf(stderr, "ERROR: %s\n", errbuf);
         else if (pcap_lookupnet(config_node->interface, &netaddr, &mask, errbuf) == -1)
           fprintf(stderr, "ERROR: %s\n", errbuf);
-        else {
-          pcaprule_function* rule_func = dlsym(mod->mod_handle, "getPcapRule");
-          if (pcap_compile(mod->pcap_handle, &filter, rule_func(mod->context), 1, mask) == -1)
-            fprintf(stderr, "ERROR: %s\n", pcap_geterr(mod->pcap_handle));
-          else if (pcap_setfilter(mod->pcap_handle, &filter) == -1)
-            fprintf(stderr, "ERROR: %s\n", pcap_geterr(mod->pcap_handle));
-          else {
-            struct event* ev = event_new(base, pcap_fileno(mod->pcap_handle), EV_READ|EV_PERSIST, pcap_callback, mod);
-            event_add(ev, NULL);
-          }
-        }
+      }
+      pcaprule_function* rule_func = dlsym(mod->mod_handle, "getPcapRule");
+      if (rule_func == NULL)
+        fprintf(stderr, "ERROR: %s\n", dlerror());
+      else if (pcap_compile(mod->pcap_handle, &filter, rule_func(mod->context), 1, mask) == -1)
+        fprintf(stderr, "ERROR: %s\n", pcap_geterr(mod->pcap_handle));
+      else if (pcap_setfilter(mod->pcap_handle, &filter) == -1)
+        fprintf(stderr, "ERROR: %s\n", pcap_geterr(mod->pcap_handle));
+      else {
+        struct event* ev = event_new(base, pcap_fileno(mod->pcap_handle), EV_READ|EV_PERSIST, pcap_callback, mod);
+        event_add(ev, NULL);
       }
       mod = mod->next;
     }
