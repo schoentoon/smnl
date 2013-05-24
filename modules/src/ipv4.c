@@ -119,7 +119,7 @@ int preCapture(struct event_base* base, char* interface, void* context) {
   }
   ipv4_config->database = initDatabase(base);
   ipv4_config->database->report_errors = 1;
-  ipv4_config->database->autocommit = 1;
+  enable_autocommit(ipv4_config->database);
   return 1;
 };
 

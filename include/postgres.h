@@ -20,9 +20,6 @@
 
 #include <event2/event.h>
 
-#define MAX_CONNECTIONS 10
-#define MAX_IDLE_TICKS 100000
-
 #include <libpq-fe.h>
 
 char* db_connect;
@@ -32,8 +29,6 @@ struct connection_struct {
   struct query_struct *queries;
   struct query_struct *last_query;
   unsigned int query_count;
-  unsigned int idle_ticker;
-  unsigned char autocommit : 1;
   unsigned char report_errors : 1;
 };
 
@@ -53,5 +48,7 @@ struct connection_struct* initDatabase(struct event_base* base);
 int databaseQuery(struct connection_struct* conn, char* query, void (*callback)(PGresult*,void*,char*), void* context);
 
 void dispatchDatabases();
+
+void enable_autocommit(struct connection_struct* conn);
 
 #endif //_POSTGRES_H

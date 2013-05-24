@@ -52,4 +52,6 @@ int parse_config(char* config_file);
 
 int launch_config(struct event_base* base);
 
+void showStats(int signal);
+
 #endif //_CONFIG_H

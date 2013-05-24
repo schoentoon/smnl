@@ -39,24 +39,24 @@ static struct database_list {
 
 char* db_connect = "";
 
-static void pq_timer(evutil_socket_t fd, short event, void *arg);
+static void pq_event(evutil_socket_t fd, short event, void *arg);
 static int highPriorityDatabaseQuery(struct connection_struct* conn, char* query, void (*callback)(PGresult*,void*,char*), void* context);
 
 struct connection_struct* initDatabase(struct event_base* base) {
   struct connection_struct* database = malloc(sizeof(struct connection_struct));
   database->query_count = 0;
-  database->idle_ticker = 0;
-  database->autocommit = 0;
   database->report_errors = 0;
   database->queries = NULL;
   database->last_query = NULL;
-  database->conn = NULL;
-  struct event* timer = event_new(base, -1, EV_PERSIST, pq_timer, database);
-  struct timeval tv;
-  evutil_timerclear(&tv);
-  tv.tv_sec = 0;
-  tv.tv_usec = 100;
-  event_add(timer, &tv);
+  database->conn = PQconnectdb(db_connect);
+  if (PQstatus(database->conn) != CONNECTION_OK) {
+    fprintf(stderr, "%s\n", PQerrorMessage(database->conn));
+    PQfinish(database->conn);
+    exit(1);
+  } else
+    PQsetnonblocking(database->conn, 1);
+  struct event* event = event_new(base, PQsocket(database->conn), EV_READ|EV_PERSIST, pq_event, database);
+  event_add(event, NULL);
   if (all_databases == NULL) {
     all_databases = malloc(sizeof(struct database_list));
     memset(all_databases, 0, sizeof(struct database_list));
@@ -72,57 +72,44 @@ struct connection_struct* initDatabase(struct event_base* base) {
   return database;
 };
 
+void enable_autocommit(struct connection_struct* conn) {
+  if (!conn)
+    return;
+  highPriorityDatabaseQuery(conn, "SET AUTOCOMMIT = ON", NULL, NULL);
+};
+
 void dispatchDatabases() {
   struct database_list* node = all_databases;
   while (node) {
-    pq_timer(0, 0, node->db);
+    pq_event(0, 0, node->db);
     node = node->next;
   };
 };
 
-static void pq_timer(evutil_socket_t fd, short event, void *arg) {
+static void pq_event(evutil_socket_t fd, short event, void *arg) {
   struct connection_struct* database = (struct connection_struct*) arg;
   if (database->queries) {
-    database->idle_ticker = 0;
-    if (database->conn == NULL) {
-      database->conn = PQconnectdb(db_connect);
-      if (PQstatus(database->conn) != CONNECTION_OK) {
-        fprintf(stderr, "%s\n", PQerrorMessage(database->conn));
-        PQfinish(database->conn);
-        database->conn = NULL;
-      } else {
-        PQsetnonblocking(database->conn, 1);
-        if (database->autocommit)
-          highPriorityDatabaseQuery(database, "SET AUTOCOMMIT = ON", NULL, NULL);
-      }
-    } else {
-      if (database->queries->sent == 0) {
-        PQsendQuery(database->conn, database->queries->query);
-        database->queries->sent = 1;
-      }
-      if (PQconsumeInput(database->conn) && !PQisBusy(database->conn)) {
-        PGresult* res = PQgetResult(database->conn);
-        while (res) {
-          if (database->queries->callback)
-            database->queries->callback(res, database->queries->context, database->queries->query);
-          if (database->report_errors && PQresultStatus(res) != PGRES_COMMAND_OK)
-            fprintf(stderr, "Query: '%s' returned error\n\t%s\n", database->queries->query, PQresultErrorMessage(res));
-          PQclear(res);
-          res = PQgetResult(database->conn);
-        }
-        database->query_count--;
-        struct query_struct* old = database->queries;
-        database->queries = database->queries->next;
-        free(old->query);
-        free(old);
-        pq_timer(fd, event, arg);
-      }
+    if (database->queries->sent == 0) {
+      PQsendQuery(database->conn, database->queries->query);
+      database->queries->sent = 1;
     }
-  } else {
-    if (database->conn && ++database->idle_ticker > MAX_IDLE_TICKS) {
-      PQfinish(database->conn);
-      database->conn = NULL;
-      database->idle_ticker = 0;
+    if (PQconsumeInput(database->conn) && !PQisBusy(database->conn)) {
+      PGresult* res = PQgetResult(database->conn);
+      while (res) {
+        if (database->queries->callback)
+          database->queries->callback(res, database->queries->context, database->queries->query);
+        if (database->report_errors && PQresultStatus(res) != PGRES_COMMAND_OK)
+          fprintf(stderr, "Query: '%s' returned error\n\t%s\n", database->queries->query, PQresultErrorMessage(res));
+        PQclear(res);
+        res = PQgetResult(database->conn);
+      }
+      database->query_count--;
+      fprintf(stderr, "%u queries left on %p.\n", database->query_count, database);
+      struct query_struct* old = database->queries;
+      database->queries = database->queries->next;
+      free(old->query);
+      free(old);
+      pq_event(fd, event, arg);
     }
   }
 }

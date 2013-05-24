@@ -190,3 +190,19 @@ int launch_config(struct event_base* base) {
   }
   return 1;
 };
+
+void showStats(int signal) {
+  struct config* config_node = config;
+  while (config_node) {
+    struct module* mod = config_node->modules;
+    while (mod) {
+      struct pcap_stat stats;
+      if (pcap_stats(mod->pcap_handle, &stats) == 0) {
+        fprintf(stderr, "Received %u packets.\n", stats.ps_recv);
+        fprintf(stderr, "Dropped %u packets.\n", stats.ps_drop);
+      };
+      mod = mod->next;
+    };
+    config_node = config_node->next;
+  };
+};
