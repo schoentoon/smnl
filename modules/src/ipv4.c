@@ -19,6 +19,7 @@
 #include "postgres.h"
 
 #include <stdio.h>
+#include <errno.h>
 #include <stdlib.h>
 #include <string.h>
 #include <netinet/in.h>
@@ -42,6 +43,7 @@ struct ipv4_module_config {
   char* first_seen;
   char* last_seen;
   char* bandwidth;
+  unsigned int dispatch_interval;
   struct connection_struct* database;
   u_char exclude_table[MAX_EXCLUDES][6];
   struct bw_node* hosts;
@@ -149,6 +151,7 @@ void* initContext() {
   output->first_seen = "first_seen";
   output->last_seen = "last_seen";
   output->bandwidth = "bandwidth";
+  output->dispatch_interval = 10;
   output->database = NULL;
   output->hosts = NULL;
   memset(&output->exclude_table, 0, sizeof(output->exclude_table));
@@ -175,6 +178,11 @@ void parseConfig(char* key, char* value, void* context) {
   } else if (strcasecmp(key, "bandwidth_col") == 0) {
     ipv4_config->bandwidth = malloc(strlen(value) + 1);
     strcpy(ipv4_config->bandwidth, value);
+  } else if (strcasecmp(key, "dispatch_interval") == 0) {
+    errno = 0;
+    long tmp = strtol(value, NULL, 10);
+    if (errno == 0)
+      ipv4_config->dispatch_interval = tmp;
   } else if (strcasecmp(key, "exclude") == 0) {
     char mac[6];
     if (sscanf(value, "%02x:%02x:%02x:%02x:%02x:%02x", &mac[0], &mac[1], &mac[2], &mac[3], &mac[4], &mac[5]) == 6) {
@@ -205,7 +213,7 @@ int preCapture(struct event_base* base, char* interface, void* context) {
   struct event* timer = event_new(base, -1, EV_PERSIST, bw_nodes_query, ipv4_config);
   struct timeval tv;
   evutil_timerclear(&tv);
-  tv.tv_sec = 10;
+  tv.tv_sec = ipv4_config->dispatch_interval;
   tv.tv_usec = 0;
   event_add(timer, &tv);
   return 1;
