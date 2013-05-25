@@ -22,6 +22,7 @@
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>
+#include <limits.h>
 #include <netinet/in.h>
 
 #define MAX_EXCLUDES 256
@@ -181,7 +182,7 @@ void parseConfig(char* key, char* value, void* context) {
   } else if (strcasecmp(key, "dispatch_interval") == 0) {
     errno = 0;
     long tmp = strtol(value, NULL, 10);
-    if (errno == 0)
+    if (errno == 0 && tmp > 0 && tmp < UINT_MAX)
       ipv4_config->dispatch_interval = tmp;
   } else if (strcasecmp(key, "exclude") == 0) {
     char mac[6];
