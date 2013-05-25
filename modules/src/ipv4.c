@@ -202,11 +202,6 @@ void parseConfig(char* key, char* value, void* context) {
 
 int preCapture(struct event_base* base, char* interface, void* context) {
   struct ipv4_module_config* ipv4_config = (struct ipv4_module_config*) context;
-  if (ipv4_config->table_name == NULL || ipv4_config->macaddr_col == NULL || ipv4_config->ipaddr_col == NULL) {
-    fprintf(stderr, "You have the ipv4 module loaded, but you don't have it configured properly, "
-                    "did you fill in the table_name, macaddr_col and ipaddr_col?\n");
-    return 0;
-  }
   ipv4_config->database = initDatabase(base);
   ipv4_config->database->report_errors = 1;
   enable_autocommit(ipv4_config->database);
