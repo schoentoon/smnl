@@ -104,7 +104,6 @@ static void pq_event(evutil_socket_t fd, short event, void *arg) {
         res = PQgetResult(database->conn);
       }
       database->query_count--;
-      fprintf(stderr, "%u queries left on %p.\n", database->query_count, database);
       struct query_struct* old = database->queries;
       database->queries = database->queries->next;
       free(old->query);

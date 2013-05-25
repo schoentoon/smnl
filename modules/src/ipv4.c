@@ -21,8 +21,100 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <netinet/in.h>
 
 #define MAX_EXCLUDES 256
+
+struct bw_node {
+  struct in_addr ip;
+  u_char mac[6];
+  struct timeval first_seen;
+  struct timeval last_seen;
+  unsigned long long bandwidth;
+  struct bw_node* left;
+  struct bw_node* right;
+};
+
+struct ipv4_module_config {
+  char* table_name;
+  char* macaddr_col;
+  char* ipaddr_col;
+  char* first_seen;
+  char* last_seen;
+  char* bandwidth;
+  struct connection_struct* database;
+  u_char exclude_table[MAX_EXCLUDES][6];
+  struct bw_node* hosts;
+};
+
+int compare_host(struct bw_node* node, u_char* mac, struct in_addr ip) {
+  if (node->ip.s_addr != ip.s_addr)
+    return node->ip.s_addr - ip.s_addr;
+  int i;
+  for (i = 0; i < 6; i++) {
+    if (node->mac[i] != mac[i])
+      return node->mac[i] - mac[i];
+  };
+  return 0;
+};
+
+struct bw_node** bw_node_search(struct bw_node** root, u_char *mac, struct in_addr ip) {
+  struct bw_node** node = root;
+  while (*node != NULL) {
+    int compare_result = compare_host(*node, mac, ip);
+    if (compare_result < 0)
+      node = &(*node)->left;
+    else if (compare_result > 0)
+      node = &(*node)->right;
+    else
+      break;
+  }
+  return node;
+};
+
+struct bw_node* bw_node_insert(struct bw_node** root, u_char *mac, struct in_addr ip) {
+  struct bw_node** node = bw_node_search(root, mac, ip);
+  if (*node == NULL) {
+    *node = malloc(sizeof(struct bw_node));
+    memset(*node, 0, sizeof(struct bw_node));
+    (*node)->ip = ip;
+    int i;
+    for (i = 0; i < 6; i++)
+      (*node)->mac[i] = mac[i];
+  }
+  return *node;
+};
+
+void bw_node_delete(struct bw_node* root) {
+  if (root) {
+    bw_node_delete(root->left);
+    bw_node_delete(root->right);
+  }
+  free(root);
+};
+
+void bw_node_query(struct bw_node* node, struct ipv4_module_config* ipv4_config) {
+  if (node) {
+    bw_node_query(node->left, ipv4_config);
+    bw_node_query(node->right, ipv4_config);
+    char buf[BUFSIZ];
+    snprintf(buf, sizeof(buf), "INSERT INTO %s (%s, %s, %s, %s, %s) "
+                               "VALUES ('%02x:%02x:%02x:%02x:%02x:%02x','%s', to_timestamp(%zd.%zd), to_timestamp(%zd.%zd), %d)"
+            ,ipv4_config->table_name, ipv4_config->macaddr_col, ipv4_config->ipaddr_col
+            ,ipv4_config->first_seen, ipv4_config->last_seen, ipv4_config->bandwidth
+            ,node->mac[0], node->mac[1], node->mac[2], node->mac[3], node->mac[4], node->mac[5]
+            ,inet_ntoa(node->ip), node->first_seen.tv_sec, node->first_seen.tv_usec, node->last_seen.tv_sec
+            ,node->last_seen.tv_usec, node->bandwidth);
+    databaseQuery(ipv4_config->database, buf, NULL, NULL);
+  }
+};
+
+void bw_nodes_query(evutil_socket_t fd, short event, void *arg) {
+  struct ipv4_module_config* ipv4_config = arg;
+  bw_node_query(ipv4_config->hosts, ipv4_config);
+  bw_node_delete(ipv4_config->hosts);
+  ipv4_config->hosts = NULL;
+};
 
 void printSQLSchema(FILE* f) {
   fprintf(f, "CREATE TABLE addresstable (\n");
@@ -49,17 +141,6 @@ void printSQLSchema(FILE* f) {
   fprintf(f, "You can safely change the table name and the column names, make sure you have configured it correctly then.\n");
 };
 
-struct ipv4_module_config {
-  char* table_name;
-  char* macaddr_col;
-  char* ipaddr_col;
-  char* first_seen;
-  char* last_seen;
-  char* bandwidth;
-  struct connection_struct* database;
-  u_char exclude_table[MAX_EXCLUDES][6];
-};
-
 void* initContext() {
   struct ipv4_module_config* output = malloc(sizeof(struct ipv4_module_config));
   output->table_name = "addresstable";
@@ -69,6 +150,7 @@ void* initContext() {
   output->last_seen = "last_seen";
   output->bandwidth = "bandwidth";
   output->database = NULL;
+  output->hosts = NULL;
   memset(&output->exclude_table, 0, sizeof(output->exclude_table));
   return output;
 };
@@ -120,6 +202,12 @@ int preCapture(struct event_base* base, char* interface, void* context) {
   ipv4_config->database = initDatabase(base);
   ipv4_config->database->report_errors = 1;
   enable_autocommit(ipv4_config->database);
+  struct event* timer = event_new(base, -1, EV_PERSIST, bw_nodes_query, ipv4_config);
+  struct timeval tv;
+  evutil_timerclear(&tv);
+  tv.tv_sec = 10;
+  tv.tv_usec = 0;
+  event_add(timer, &tv);
   return 1;
 };
 
@@ -150,27 +238,18 @@ int validateMAC(u_char array[], struct ipv4_module_config* ipv4_config) {
 
 void IPv4Callback(struct ethernet_header* ethernet, struct ipv4_header* ipv4, const unsigned char *packet, struct pcap_pkthdr pkthdr, void* context) {
   struct ipv4_module_config* ipv4_config = (struct ipv4_module_config*) context;
-  char buf[4096];
   if (validateMAC(ethernet->ether_shost, ipv4_config)) {
-    snprintf(buf, sizeof(buf), "INSERT INTO %s (%s, %s, %s, %s, %s) "
-                               "VALUES ('%02x:%02x:%02x:%02x:%02x:%02x','%s', to_timestamp(%zd.%zd), to_timestamp(%zd.%zd), %d)"
-            ,ipv4_config->table_name, ipv4_config->macaddr_col, ipv4_config->ipaddr_col
-            ,ipv4_config->first_seen, ipv4_config->last_seen, ipv4_config->bandwidth
-            ,ethernet->ether_shost[0], ethernet->ether_shost[1], ethernet->ether_shost[2]
-            ,ethernet->ether_shost[3], ethernet->ether_shost[4], ethernet->ether_shost[5]
-            ,inet_ntoa(ipv4->ip_src), pkthdr.ts.tv_sec, pkthdr.ts.tv_usec, pkthdr.ts.tv_sec
-            ,pkthdr.ts.tv_usec, pkthdr.caplen);
-    databaseQuery(ipv4_config->database, buf, NULL, NULL);
+    struct bw_node* node = bw_node_insert(&ipv4_config->hosts, ethernet->ether_shost, ipv4->ip_src);
+    if (node->first_seen.tv_sec == 0)
+      node->first_seen = pkthdr.ts;
+    node->last_seen = pkthdr.ts;
+    node->bandwidth += pkthdr.caplen;
   }
   if (validateMAC(ethernet->ether_dhost, ipv4_config)) {
-    snprintf(buf, sizeof(buf), "INSERT INTO %s (%s, %s, %s, %s, %s) "
-                               "VALUES ('%02x:%02x:%02x:%02x:%02x:%02x','%s', to_timestamp(%zd.%zd), to_timestamp(%zd.%zd), %d)"
-            ,ipv4_config->table_name, ipv4_config->macaddr_col, ipv4_config->ipaddr_col
-            ,ipv4_config->first_seen, ipv4_config->last_seen, ipv4_config->bandwidth
-            ,ethernet->ether_dhost[0], ethernet->ether_dhost[1], ethernet->ether_dhost[2]
-            ,ethernet->ether_dhost[3], ethernet->ether_dhost[4], ethernet->ether_dhost[5]
-            ,inet_ntoa(ipv4->ip_dst), pkthdr.ts.tv_sec, pkthdr.ts.tv_usec, pkthdr.ts.tv_sec
-            ,pkthdr.ts.tv_usec, pkthdr.caplen);
-    databaseQuery(ipv4_config->database, buf, NULL, NULL);
+    struct bw_node* node = bw_node_insert(&ipv4_config->hosts, ethernet->ether_dhost, ipv4->ip_dst);
+    if (node->first_seen.tv_sec == 0)
+      node->first_seen = pkthdr.ts;
+    node->last_seen = pkthdr.ts;
+    node->bandwidth += pkthdr.caplen;
   }
 };
