@@ -160,7 +160,7 @@ void* initContext() {
 };
 
 void parseConfig(char* key, char* value, void* context) {
-  struct ipv4_module_config* ipv4_config = (struct ipv4_module_config*) context;
+  struct ipv4_module_config* ipv4_config = context;
   if (strcasecmp(key, "table_name") == 0) {
     ipv4_config->table_name = malloc(strlen(value) + 1);
     strcpy(ipv4_config->table_name, value);
@@ -202,7 +202,7 @@ void parseConfig(char* key, char* value, void* context) {
 };
 
 int preCapture(struct event_base* base, char* interface, void* context) {
-  struct ipv4_module_config* ipv4_config = (struct ipv4_module_config*) context;
+  struct ipv4_module_config* ipv4_config = context;
   ipv4_config->database = initDatabase(base);
   ipv4_config->database->report_errors = 1;
   enable_autocommit(ipv4_config->database);
@@ -241,7 +241,7 @@ int validateMAC(u_char array[], struct ipv4_module_config* ipv4_config) {
 };
 
 void IPv4Callback(struct ethernet_header* ethernet, struct ipv4_header* ipv4, const unsigned char *packet, struct pcap_pkthdr pkthdr, void* context) {
-  struct ipv4_module_config* ipv4_config = (struct ipv4_module_config*) context;
+  struct ipv4_module_config* ipv4_config = context;
   if (validateMAC(ethernet->ether_shost, ipv4_config)) {
     struct bw_node* node = bw_node_insert(&ipv4_config->hosts, ethernet->ether_shost, ipv4->ip_src);
     if (node->first_seen.tv_sec == 0)

@@ -22,6 +22,8 @@
 #include <pcap.h>
 #include <math.h>
 #include <stdio.h>
+#include <errno.h>
+#include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 #include <net/if.h>
@@ -102,7 +104,7 @@ void* initContext() {
 };
 
 void parseConfig(char* key, char* value, void* context) {
-  struct arp_module_config* arp_config = (struct arp_module_config*) context;
+  struct arp_module_config* arp_config = context;
   if (strcasecmp(key, "table_name") == 0) {
     arp_config->table_name = malloc(strlen(value) + 1);
     strcpy(arp_config->table_name, value);
@@ -112,9 +114,12 @@ void parseConfig(char* key, char* value, void* context) {
   } else if (strcasecmp(key, "ipaddr_col") == 0) {
     arp_config->ipaddr_col = malloc(strlen(value) + 1);
     strcpy(arp_config->ipaddr_col, value);
-  } else if (strcasecmp(key, "probe_interval") == 0)
-    arp_config->probe_interval = atoi(value);
-  else if (strcasecmp(key, "probe_range") == 0) {
+  } else if (strcasecmp(key, "probe_interval") == 0) {
+    errno = 0;
+    long tmp = strtol(value, NULL, 10);
+    if (errno == 0 && tmp > 0 && tmp < UINT_MAX)
+      arp_config->probe_interval = tmp;
+  } else if (strcasecmp(key, "probe_range") == 0) {
     unsigned int startIp;
     unsigned int endIp;
     if (cidrToIpRange(value, &startIp, &endIp)) {
@@ -138,7 +143,7 @@ struct arping_info {
 
 static void arping_timer(evutil_socket_t fd, short event, void *arg) {
   static const char dst_mac[] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-  struct arping_info* info = (struct arping_info*) arg;
+  struct arping_info* info = arg;
   static const unsigned int buffer_size = sizeof(struct arphdr) + sizeof(struct ether_header);
   unsigned char buf[buffer_size];
   memset(buf, 0, sizeof(buf));
@@ -177,7 +182,7 @@ static void arping_timer(evutil_socket_t fd, short event, void *arg) {
 };
 
 int preCapture(struct event_base* base, char* interface, void* context) {
-  struct arp_module_config* arp_config = (struct arp_module_config*) context;
+  struct arp_module_config* arp_config = context;
   arp_config->database = initDatabase(base);
   arp_config->database->report_errors = 1;
   enable_autocommit(arp_config->database);
@@ -219,7 +224,7 @@ int validateMAC(u_char array[]) {
 void rawPacketCallback(const unsigned char *packet, struct pcap_pkthdr pkthdr, void* context) {
   struct arphdr *arp = (struct arphdr*) (packet + 14);
   if (ntohs(arp->htype) == 1 && ntohs(arp->ptype) == 0x0800) {
-    struct arp_module_config* arp_config = (struct arp_module_config*) context;
+    struct arp_module_config* arp_config = context;
     char buf[4096];
     if (arp->spa[0] && validateMAC(arp->sha)) {
       snprintf(buf, sizeof(buf), "INSERT INTO %s (%s, %s) VALUES "
