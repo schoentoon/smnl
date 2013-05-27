@@ -115,7 +115,7 @@ static void pq_event(evutil_socket_t fd, short event, void *arg) {
 
 void appendQueryPool(struct connection_struct* conn, struct query_struct* query)
 {
-  if (conn->query_count == 0) {
+  if (conn->query_count == 0 || !conn->last_query) {
     conn->queries = query;
     conn->last_query = query;
     conn->query_count++;
