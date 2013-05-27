@@ -49,6 +49,64 @@
 #define ARP_REPLY 2
 #define MAX_RANGES 256
 
+struct arp_node {
+  u_char ip[4];
+  u_char mac[6];
+  struct timeval first_seen;
+  struct timeval last_seen;
+  struct arp_node* left;
+  struct arp_node* right;
+};
+
+int compare_host(struct arp_node* node, u_char* mac, u_char* ip) {
+  int i;
+  for (i = 0; i < 4; i++) {
+    if (node->ip[i] != ip[i])
+      return node->ip[i] - ip[i];
+  };
+  for (i = 0; i < 6; i++) {
+    if (node->mac[i] != mac[i])
+      return node->mac[i] - mac[i];
+  };
+  return 0;
+};
+
+struct arp_node** arp_node_search(struct arp_node** root, u_char *mac, u_char* ip) {
+  struct arp_node** node = root;
+  while (*node != NULL) {
+    int compare_result = compare_host(*node, mac, ip);
+    if (compare_result < 0)
+      node = &(*node)->left;
+    else if (compare_result > 0)
+      node = &(*node)->right;
+    else
+      break;
+  }
+  return node;
+};
+
+struct arp_node* arp_node_insert(struct arp_node** root, u_char *mac, u_char* ip) {
+  struct arp_node** node = arp_node_search(root, mac, ip);
+  if (*node == NULL) {
+    *node = malloc(sizeof(struct arp_node));
+    memset(*node, 0, sizeof(struct arp_node));
+    int i;
+    for (i = 0; i < 4; i++)
+      (*node)->ip[i] = ip[i];
+    for (i = 0; i < 6; i++)
+      (*node)->mac[i] = mac[i];
+  }
+  return *node;
+};
+
+void arp_node_delete(struct arp_node* root) {
+  if (root) {
+    arp_node_delete(root->left);
+    arp_node_delete(root->right);
+  }
+  free(root);
+};
+
 void printSQLSchema(FILE* f) {
   fprintf(f, "CREATE TABLE arptable (hwadr macaddr NOT NULL\n");
   fprintf(f, "                      ,ipadr inet NOT NULL\n");
@@ -87,9 +145,28 @@ struct arp_module_config {
   char* table_name;
   char* macaddr_col;
   char* ipaddr_col;
+  char* first_seen_col;
+  char* last_seen_col;
+  unsigned int dispatch_interval;
   unsigned int probe_interval;
   unsigned int probe_ranges[MAX_RANGES][2];
   struct connection_struct* database;
+  struct arp_node* hosts;
+};
+
+void arp_node_query(struct arp_node* node, struct arp_module_config* arp_config) {
+  if (node) {
+    arp_node_query(node->left, arp_config);
+    arp_node_query(node->right, arp_config);
+    char buf[BUFSIZ];
+    snprintf(buf, sizeof(buf), "INSERT INTO %s (%s, %s, %s, %s) VALUES "
+                               "('%02X:%02X:%02X:%02X:%02X:%02X', '%d.%d.%d.%d', to_timestamp(%zd.%zd), to_timestamp(%zd.%zd))"
+            ,arp_config->table_name, arp_config->macaddr_col, arp_config->ipaddr_col, arp_config->first_seen_col, arp_config->last_seen_col
+            ,node->mac[0], node->mac[1], node->mac[2], node->mac[3], node->mac[4], node->mac[5]
+            ,node->ip[0], node->ip[1], node->ip[2], node->ip[3]
+            ,node->first_seen.tv_sec, node->first_seen.tv_usec, node->last_seen.tv_sec, node->last_seen.tv_usec);
+    databaseQuery(arp_config->database, buf, NULL, NULL);
+  }
 };
 
 void* initContext() {
@@ -97,9 +174,13 @@ void* initContext() {
   output->table_name = "public.arptable";
   output->macaddr_col = "hwadr";
   output->ipaddr_col = "ipadr";
+  output->first_seen_col = "first_seen";
+  output->last_seen_col = "last_seen";
   output->probe_interval = 0;
+  output->dispatch_interval = 10;
   memset(output->probe_ranges, 0, sizeof(output->probe_ranges));
   output->database = NULL;
+  output->hosts = NULL;
   return output;
 };
 
@@ -114,11 +195,22 @@ void parseConfig(char* key, char* value, void* context) {
   } else if (strcasecmp(key, "ipaddr_col") == 0) {
     arp_config->ipaddr_col = malloc(strlen(value) + 1);
     strcpy(arp_config->ipaddr_col, value);
+  } else if (strcasecmp(key, "first_seen_col") == 0) {
+    arp_config->first_seen_col = malloc(strlen(value) + 1);
+    strcpy(arp_config->first_seen_col, value);
+  } else if (strcasecmp(key, "last_seen_col") == 0) {
+    arp_config->last_seen_col = malloc(strlen(value) + 1);
+    strcpy(arp_config->last_seen_col, value);
   } else if (strcasecmp(key, "probe_interval") == 0) {
     errno = 0;
     long tmp = strtol(value, NULL, 10);
     if (errno == 0 && tmp > 0 && tmp < UINT_MAX)
       arp_config->probe_interval = tmp;
+  } else if (strcasecmp(key, "dispatch_interval") == 0) {
+    errno = 0;
+    long tmp = strtol(value, NULL, 10);
+    if (errno == 0 && tmp > 0 && tmp < UINT_MAX)
+      arp_config->dispatch_interval = tmp;
   } else if (strcasecmp(key, "probe_range") == 0) {
     unsigned int startIp;
     unsigned int endIp;
@@ -181,6 +273,13 @@ static void arping_timer(evutil_socket_t fd, short event, void *arg) {
   }
 };
 
+void arp_nodes_query(evutil_socket_t fd, short event, void *arg) {
+  struct arp_module_config* arp_config = arg;
+  arp_node_query(arp_config->hosts, arp_config);
+  arp_node_delete(arp_config->hosts);
+  arp_config->hosts = NULL;
+};
+
 int preCapture(struct event_base* base, char* interface, void* context) {
   struct arp_module_config* arp_config = context;
   arp_config->database = initDatabase(base);
@@ -203,7 +302,13 @@ int preCapture(struct event_base* base, char* interface, void* context) {
     tv.tv_sec = arp_config->probe_interval;
     tv.tv_usec = 0;
     event_add(timer, &tv);
-  }
+  };
+  struct event* timer = event_new(base, -1, EV_PERSIST, arp_nodes_query, arp_config);
+  struct timeval tv;
+  evutil_timerclear(&tv);
+  tv.tv_sec = arp_config->dispatch_interval;
+  tv.tv_usec = 0;
+  event_add(timer, &tv);
   return 1;
 };
 
@@ -225,22 +330,17 @@ void rawPacketCallback(const unsigned char *packet, struct pcap_pkthdr pkthdr, v
   struct arphdr *arp = (struct arphdr*) (packet + 14);
   if (ntohs(arp->htype) == 1 && ntohs(arp->ptype) == 0x0800) {
     struct arp_module_config* arp_config = context;
-    char buf[4096];
     if (arp->spa[0] && validateMAC(arp->sha)) {
-      snprintf(buf, sizeof(buf), "INSERT INTO %s (%s, %s) VALUES "
-                                "('%02X:%02X:%02X:%02X:%02X:%02X', '%d.%d.%d.%d')"
-                                ,arp_config->table_name, arp_config->macaddr_col, arp_config->ipaddr_col
-                                ,arp->sha[0], arp->sha[1], arp->sha[2], arp->sha[3], arp->sha[4], arp->sha[5]
-                                ,arp->spa[0], arp->spa[1], arp->spa[2], arp->spa[3]);
-      databaseQuery(arp_config->database, buf, NULL, NULL);
+      struct arp_node* node = arp_node_insert(&arp_config->hosts, arp->sha, arp->spa);
+      if (node->first_seen.tv_sec == 0)
+        node->first_seen = pkthdr.ts;
+      node->last_seen = pkthdr.ts;
     }
     if (arp->tpa[0] && validateMAC(arp->tha)) {
-      snprintf(buf, sizeof(buf), "INSERT INTO %s (%s, %s) VALUES "
-                                "('%02X:%02X:%02X:%02X:%02X:%02X', '%d.%d.%d.%d')"
-                                ,arp_config->table_name, arp_config->macaddr_col, arp_config->ipaddr_col
-                                ,arp->tha[0], arp->tha[1], arp->tha[2], arp->tha[3], arp->tha[4], arp->tha[5]
-                                ,arp->tpa[0], arp->tpa[1], arp->tpa[2], arp->tpa[3]);
-      databaseQuery(arp_config->database, buf, NULL, NULL);
+      struct arp_node* node = arp_node_insert(&arp_config->hosts, arp->tha, arp->tpa);
+      if (node->first_seen.tv_sec == 0)
+        node->first_seen = pkthdr.ts;
+      node->last_seen = pkthdr.ts;
     }
   }
 };
