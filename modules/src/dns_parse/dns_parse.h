@@ -128,4 +128,7 @@ void print_packet(uint32_t max_len, uint8_t *packet,
 
 // Print the given timestamp out on the given file*, as configured.
 void print_ts(struct timeval *, config *);
+
+void dns_rr_free(dns_rr *);
+void dns_question_free(dns_question *);
 #endif
