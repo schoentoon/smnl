@@ -21,6 +21,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <pcap.h>
 
 struct dns_header {
     /* RFC 1035, section 4.1 */
@@ -51,7 +52,7 @@ int preCapture(struct event_base* base, char* interface, void* context) {
   struct dns_module_config* dns_config = (struct dns_module_config*) context;
   dns_config->database = initDatabase(base);
   dns_config->database->report_errors = 1;
-  dns_config->database->autocommit = 1;
+  enable_autocommit(dns_config->database);
   return 1;
 };
 
@@ -59,9 +60,14 @@ char* getPcapRule(void* context) {
   return "port 53";
 };
 
-void IPv4UDPCallback(struct ethernet_header* ethernet, struct ipv4_header* ipv4, struct udp_header* udp, void* context) {
+void IPv4UDPCallback(struct ethernet_header* ethernet, struct ipv4_header* ipv4, struct udp_header* udp, const unsigned char *packet, struct pcap_pkthdr pkthdr, void* context) {
   fprintf(stderr, "IPv4UDPCallback(%p, %p, %p, %p);\n", ethernet, ipv4, udp, context);
   struct dns_module_config* dns_config = (struct dns_module_config*) context;
   struct dns_header* dns_header = (struct dns_header*) (udp + SIZE_UDP);
-  fprintf(stderr, "DNS Query: %s\n", DNS_QR(dns_header) == 0 ? "true" : "false");
+  if (DNS_QR(dns_header) == 0) {
+    fprintf(stderr, "DNS Query\n");
+    int i;
+    for (i = 0; i < pkthdr.caplen; i++)
+      fprintf(stderr, "0x%x %c\n", packet[i], packet[i]);
+  }
 };
