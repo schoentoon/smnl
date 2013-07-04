@@ -16,11 +16,15 @@ arp.so: src/arp.c
 ipv4.so: src/ipv4.c
 	$(CC) $(CFLAGS) $(MFLAGS) $(DEFINES) $(INC) -Wno-format -o ipv4.so src/ipv4.c
 
-dns.so: src/dns.c
-	$(CC) $(CFLAGS) $(MFLAGS) $(DEFINES) $(INC) -Wno-format -o dns.so src/dns.c
+dns_parse:
+	$(MAKE) -C src/dns_parse
+
+dns.so: src/dns.c dns_parse
+	$(CC) $(CFLAGS) $(MFLAGS) $(DEFINES) $(INC) -Wno-format -o dns.so src/dns.c src/dns_parse/*.o
 
 clean:
 	rm -rfv $(MODULES)
+	$(MAKE) -C src/dns_parse clean
 
-install:
-	cp bin/$(BINARY) /usr/bin/$(BINARY)
+clang:
+	$(MAKE) CC=clang
