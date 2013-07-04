@@ -30,7 +30,7 @@ typedef void sql_schema_function(FILE* f);
 typedef int pre_capture_function(struct event_base* base, char* interface, void* context);
 typedef void pcap_rawpacket_callback(const unsigned char *packet, struct pcap_pkthdr pkthdr, void* context);
 typedef void pcap_ipv4_callback(struct ethernet_header* ethernet, struct ipv4_header* ipv4, const unsigned char *packet, struct pcap_pkthdr pkthdr, void* context);
-typedef void pcap_ipv4_udp_callback(struct ethernet_header* ethernet, struct ipv4_header* ipv4, struct udp_header* udp, void* context);
+typedef void pcap_ipv4_udp_callback(struct ethernet_header* ethernet, struct ipv4_header* ipv4, struct udp_header* udp, const unsigned char *packet, struct pcap_pkthdr pkthdr, void* context);
 
 struct config {
   char* interface;
@@ -51,5 +51,7 @@ struct module {
 int parse_config(char* config_file);
 
 int launch_config(struct event_base* base);
+
+void showStats(int signal);
 
 #endif //_CONFIG_H

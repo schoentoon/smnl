@@ -17,9 +17,11 @@
 
 #include "config.h"
 
-#include <getopt.h>
-#include <event2/event.h>
 #include <dlfcn.h>
+#include <getopt.h>
+#include <signal.h>
+
+#include <event2/event.h>
 
 static const struct option g_LongOpts[] = {
   { "help",       no_argument,       0, 'h' },
@@ -70,6 +72,7 @@ int main(int argc, char** argv) {
   }
   struct event_base* event_base = event_base_new();
   launch_config(event_base);
+  signal(SIGUSR1, showStats);
   while (1)
     event_base_dispatch(event_base);
   return 0;
