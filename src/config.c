@@ -151,7 +151,7 @@ void pcap_callback(evutil_socket_t fd, short what, void *arg) {
       if (ethernet_header && ipv4) {
         struct udp_header* udp = getUDPHeaderFromIPv4(packet, ipv4);
         if (udp)
-          mod->ipv4_udp_callback(ethernet_header, ipv4, udp, mod->context);
+          mod->ipv4_udp_callback(ethernet_header, ipv4, udp, packet, pkthdr, mod->context);
       }
     }
   }
