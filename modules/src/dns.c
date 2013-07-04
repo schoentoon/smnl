@@ -77,7 +77,8 @@ char* getPcapRule(void* context) {
 
 void IPv4UDPCallback(struct ethernet_header* eth, struct ipv4_header* ipv4, struct udp_header* udp, const unsigned char *packet, struct pcap_pkthdr pkthdr, void* context) {
   struct dns_module_config* dns_config = (struct dns_module_config*) context;
-  if (dns_parse(((void*)udp-(void*)packet)+SIZE_UDP, &pkthdr, (uint8_t*) packet, dns_config->dns, dns_config->conf, 1) != 0) {
+  if (dns_parse(((void*)udp-(void*)packet)+SIZE_UDP, &pkthdr, (uint8_t*) packet, dns_config->dns, dns_config->conf, 1) != 0
+    && !dns_config->dns->answers) {
     dns_question* q = dns_config->dns->queries;
     while (q) {
       char buf[BUFSIZ];
