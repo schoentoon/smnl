@@ -52,6 +52,22 @@ void* initContext() {
   return output;
 };
 
+void parseConfig(char* key, char* value, void* context) {
+  struct dns_module_config* dns_config = context;
+  if (strcasecmp(key, "table_name") == 0)
+    dns_config->table_name = strdup(value);
+  else if (strcasecmp(key, "macaddr_col") == 0)
+    dns_config->macaddr_col = strdup(value);
+  else if (strcasecmp(key, "ipaddr_col") == 0)
+    dns_config->ipaddr_col = strdup(value);
+  else if (strcasecmp(key, "server_ip_col") == 0)
+    dns_config->server_ip_col = strdup(value);
+  else if (strcasecmp(key, "timestamp_col") == 0)
+    dns_config->timestamp_col = strdup(value);
+  else if (strcasecmp(key, "question_col") == 0)
+    dns_config->question_col = strdup(value);
+};
+
 void printSQLSchema(FILE* f) {
   fprintf(f, "CREATE TABLE dnsquestions(\n");
   fprintf(f, "  hwadr macaddr NOT NULL,\n");
