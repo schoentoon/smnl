@@ -1,4 +1,4 @@
-CFLAGS := $(CFLAGS) -Wall -O2 -mtune=native -g -shared -fPIC
+CFLAGS := $(CFLAGS) -Wall -O2 -mtune=native -g -fPIC
 CC     := gcc
 OBJ    := dns_parse.o rtypes.o strutils.o network.o tcp.o
 
