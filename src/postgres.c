@@ -149,8 +149,7 @@ static int highPriorityDatabaseQuery(struct connection_struct* conn, char* query
   return 1;
 };
 
-int databaseQuery(struct connection_struct* conn, char* query, void (*callback)(PGresult*,void*,char*), void* context)
-{
+int databaseQuery(struct connection_struct* conn, char* query, void (*callback)(PGresult*,void*,char*), void* context) {
   if (query == NULL || conn == NULL)
     return 0;
   struct query_struct* query_struct = malloc(sizeof(struct query_struct));

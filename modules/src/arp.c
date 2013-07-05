@@ -186,22 +186,17 @@ void* initContext() {
 
 void parseConfig(char* key, char* value, void* context) {
   struct arp_module_config* arp_config = context;
-  if (strcasecmp(key, "table_name") == 0) {
-    arp_config->table_name = malloc(strlen(value) + 1);
-    strcpy(arp_config->table_name, value);
-  } else if (strcasecmp(key, "macaddr_col") == 0) {
-    arp_config->macaddr_col = malloc(strlen(value) + 1);
-    strcpy(arp_config->macaddr_col, value);
-  } else if (strcasecmp(key, "ipaddr_col") == 0) {
-    arp_config->ipaddr_col = malloc(strlen(value) + 1);
-    strcpy(arp_config->ipaddr_col, value);
-  } else if (strcasecmp(key, "first_seen_col") == 0) {
-    arp_config->first_seen_col = malloc(strlen(value) + 1);
-    strcpy(arp_config->first_seen_col, value);
-  } else if (strcasecmp(key, "last_seen_col") == 0) {
-    arp_config->last_seen_col = malloc(strlen(value) + 1);
-    strcpy(arp_config->last_seen_col, value);
-  } else if (strcasecmp(key, "probe_interval") == 0) {
+  if (strcasecmp(key, "table_name") == 0)
+    arp_config->table_name = strdup(value);
+  else if (strcasecmp(key, "macaddr_col") == 0)
+    arp_config->macaddr_col = strdup(value);
+  else if (strcasecmp(key, "ipaddr_col") == 0)
+    arp_config->ipaddr_col = strdup(value);
+  else if (strcasecmp(key, "first_seen_col") == 0)
+    arp_config->first_seen_col = strdup(value);
+  else if (strcasecmp(key, "last_seen_col") == 0)
+    arp_config->last_seen_col = strdup(value);
+  else if (strcasecmp(key, "probe_interval") == 0) {
     errno = 0;
     long tmp = strtol(value, NULL, 10);
     if (errno == 0 && tmp > 0 && tmp < UINT_MAX)

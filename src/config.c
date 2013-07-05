@@ -168,7 +168,7 @@ int launch_config(struct event_base* base) {
     while (mod) {
       pre_capture_function* precapture_func = dlsym(mod->mod_handle, "preCapture");
       if ((precapture_func && precapture_func(base, config_node->interface, mod->context)) || precapture_func == NULL) {
-        if ((mod->pcap_handle = pcap_open_live(config_node->interface, BUFSIZ, 0,  512, errbuf)) == NULL)
+        if ((mod->pcap_handle = pcap_open_live(config_node->interface, BUFSIZ, 0, 512, errbuf)) == NULL)
           fprintf(stderr, "ERROR: %s\n", errbuf);
         else if (pcap_lookupnet(config_node->interface, &netaddr, &mask, errbuf) == -1)
           fprintf(stderr, "ERROR: %s\n", errbuf);

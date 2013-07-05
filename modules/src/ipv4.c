@@ -161,25 +161,19 @@ void* initContext() {
 
 void parseConfig(char* key, char* value, void* context) {
   struct ipv4_module_config* ipv4_config = context;
-  if (strcasecmp(key, "table_name") == 0) {
-    ipv4_config->table_name = malloc(strlen(value) + 1);
-    strcpy(ipv4_config->table_name, value);
-  } else if (strcasecmp(key, "macaddr_col") == 0) {
-    ipv4_config->macaddr_col = malloc(strlen(value) + 1);
-    strcpy(ipv4_config->macaddr_col, value);
-  } else if (strcasecmp(key, "ipaddr_col") == 0) {
-    ipv4_config->ipaddr_col = malloc(strlen(value) + 1);
-    strcpy(ipv4_config->ipaddr_col, value);
-  } else if (strcasecmp(key, "first_seen_col") == 0) {
-    ipv4_config->first_seen = malloc(strlen(value) + 1);
-    strcpy(ipv4_config->first_seen, value);
-  } else if (strcasecmp(key, "last_seen_col") == 0) {
-    ipv4_config->last_seen = malloc(strlen(value) + 1);
-    strcpy(ipv4_config->last_seen, value);
-  } else if (strcasecmp(key, "bandwidth_col") == 0) {
-    ipv4_config->bandwidth = malloc(strlen(value) + 1);
-    strcpy(ipv4_config->bandwidth, value);
-  } else if (strcasecmp(key, "dispatch_interval") == 0) {
+  if (strcasecmp(key, "table_name") == 0)
+    ipv4_config->table_name = strdup(value);
+  else if (strcasecmp(key, "macaddr_col") == 0)
+    ipv4_config->macaddr_col = strdup(value);
+  else if (strcasecmp(key, "ipaddr_col") == 0)
+    ipv4_config->ipaddr_col = strdup(value);
+  else if (strcasecmp(key, "first_seen_col") == 0)
+    ipv4_config->first_seen = strdup(value);
+  else if (strcasecmp(key, "last_seen_col") == 0)
+    ipv4_config->last_seen = strdup(value);
+  else if (strcasecmp(key, "bandwidth_col") == 0)
+    ipv4_config->bandwidth = strdup(value);
+  else if (strcasecmp(key, "dispatch_interval") == 0) {
     errno = 0;
     long tmp = strtol(value, NULL, 10);
     if (errno == 0 && tmp > 0 && tmp < UINT_MAX)
