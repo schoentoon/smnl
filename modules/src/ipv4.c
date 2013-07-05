@@ -101,12 +101,13 @@ void bw_node_query(struct bw_node* node, struct ipv4_module_config* ipv4_config)
     bw_node_query(node->left, ipv4_config);
     bw_node_query(node->right, ipv4_config);
     char buf[BUFSIZ];
+    char ip[INET_ADDRSTRLEN];
     snprintf(buf, sizeof(buf), "INSERT INTO %s (%s, %s, %s, %s, %s) "
                                "VALUES ('%02x:%02x:%02x:%02x:%02x:%02x','%s', to_timestamp(%zd.%zd), to_timestamp(%zd.%zd), %d)"
             ,ipv4_config->table_name, ipv4_config->macaddr_col, ipv4_config->ipaddr_col
             ,ipv4_config->first_seen, ipv4_config->last_seen, ipv4_config->bandwidth
             ,node->mac[0], node->mac[1], node->mac[2], node->mac[3], node->mac[4], node->mac[5]
-            ,inet_ntoa(node->ip), node->first_seen.tv_sec, node->first_seen.tv_usec, node->last_seen.tv_sec
+            ,inet_ntop(AF_INET, &node->ip, ip, INET_ADDRSTRLEN), node->first_seen.tv_sec, node->first_seen.tv_usec, node->last_seen.tv_sec
             ,node->last_seen.tv_usec, node->bandwidth);
     databaseQuery(ipv4_config->database, buf, NULL, NULL);
   }
