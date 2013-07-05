@@ -118,6 +118,7 @@ void appendQueryPool(struct connection_struct* conn, struct query_struct* query)
     conn->queries = query;
     conn->last_query = query;
     conn->query_count++;
+    pq_event(0, 0, conn);
   } else {
     conn->last_query->next = query;
     conn->last_query = query;
