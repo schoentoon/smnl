@@ -62,13 +62,14 @@ int main(int argc, char** argv) {
         void* mod_handle = dlopen(optarg, RTLD_LAZY);
         if (mod_handle) {
           sql_schema_function *sql_schema = dlsym(mod_handle, "printSQLSchema");
-          if (sql_schema)
+          if (sql_schema) {
             sql_schema(stderr);
-          else
+            return 0;
+          } else
             fprintf(stderr, "Error: '%s'\n", dlerror());
         } else
           fprintf(stderr, "Error: '%s'\n", dlerror());
-        return 0;
+        return 1;
       }
       default:
       case 'h':
