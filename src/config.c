@@ -34,6 +34,8 @@
 
 static struct config* config = NULL;
 
+char* offline_file = NULL;
+
 int parse_config(char* config_file) {
   FILE* f = fopen(config_file, "r");
   if (f == NULL) {
@@ -168,21 +170,38 @@ int launch_config(struct event_base* base) {
     while (mod) {
       pre_capture_function* precapture_func = dlsym(mod->mod_handle, "preCapture");
       if ((precapture_func && precapture_func(base, config_node->interface, mod->context)) || precapture_func == NULL) {
-        if ((mod->pcap_handle = pcap_open_live(config_node->interface, BUFSIZ, 0, 512, errbuf)) == NULL)
-          fprintf(stderr, "ERROR: %s\n", errbuf);
-        else if (pcap_lookupnet(config_node->interface, &netaddr, &mask, errbuf) == -1)
-          fprintf(stderr, "ERROR: %s\n", errbuf);
+        if (offline_file) {
+          if ((mod->pcap_handle = pcap_open_offline(offline_file, errbuf)) == NULL) {
+            fprintf(stderr, "ERROR: %s\n", errbuf);
+            exit(1);
+          }
+        } else {
+          if ((mod->pcap_handle = pcap_open_live(config_node->interface, BUFSIZ, 0, 512, errbuf)) == NULL) {
+            fprintf(stderr, "ERROR: %s\n", errbuf);
+            exit(1);
+          } else if (pcap_lookupnet(config_node->interface, &netaddr, &mask, errbuf) == -1) {
+            fprintf(stderr, "ERROR: %s\n", errbuf);
+            exit(1);
+          }
+        }
       }
       pcaprule_function* rule_func = dlsym(mod->mod_handle, "getPcapRule");
-      if (rule_func == NULL)
+      if (rule_func == NULL) {
         fprintf(stderr, "ERROR: %s\n", dlerror());
-      else if (pcap_compile(mod->pcap_handle, &filter, rule_func(mod->context), 1, mask) == -1)
+        exit(1);
+      } else if (pcap_compile(mod->pcap_handle, &filter, rule_func(mod->context), 1, mask) == -1) {
         fprintf(stderr, "ERROR: %s\n", pcap_geterr(mod->pcap_handle));
-      else if (pcap_setfilter(mod->pcap_handle, &filter) == -1)
+        exit(1);
+      } else if (pcap_setfilter(mod->pcap_handle, &filter) == -1) {
         fprintf(stderr, "ERROR: %s\n", pcap_geterr(mod->pcap_handle));
-      else {
-        struct event* ev = event_new(base, pcap_fileno(mod->pcap_handle), EV_READ|EV_PERSIST, pcap_callback, mod);
-        event_add(ev, NULL);
+        exit(1);
+      } else {
+        if (offline_file) {
+          pcap_callback(0, 0, mod);
+        } else {
+          struct event* ev = event_new(base, pcap_fileno(mod->pcap_handle), EV_READ|EV_PERSIST, pcap_callback, mod);
+          event_add(ev, NULL);
+        }
       }
       mod = mod->next;
     }

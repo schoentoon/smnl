@@ -28,6 +28,7 @@ static const struct option g_LongOpts[] = {
   { "config",     required_argument, 0, 'C' },
   { "test-config",required_argument, 0, 'T' },
   { "sql-schema", required_argument, 0, 'S' },
+  { "file",       required_argument, 0, 'f' },
   { 0, 0, 0, 0 }
 };
 
@@ -35,6 +36,7 @@ int usage(char* program) {
   fprintf(stderr, "USAGE: %s [options]\n", program);
   fprintf(stderr, "-h, --help\tShow this help.\n");
   fprintf(stderr, "-C, --config\tUse this configuration file.\n");
+  fprintf(stderr, "-f, --file\tUse this file instead of actual data.\n");
   fprintf(stderr, "-T, --test-config\tTest the configuration file.\n");
   fprintf(stderr, "-S, --sql-schema\tShow the sql schema assumed by this module.\n");
   return 0;
@@ -42,8 +44,11 @@ int usage(char* program) {
 
 int main(int argc, char** argv) {
   int iArg, iOptIndex = -1;
-  while ((iArg = getopt_long(argc, argv, "hC:T:S:", g_LongOpts, &iOptIndex)) != -1) {
+  while ((iArg = getopt_long(argc, argv, "hC:T:S:f:", g_LongOpts, &iOptIndex)) != -1) {
     switch (iArg) {
+      case 'f':
+        offline_file = optarg;
+        break;
       case 'T':
         if (parse_config(optarg) == 0)
           return 1;
@@ -72,6 +77,8 @@ int main(int argc, char** argv) {
   }
   struct event_base* event_base = event_base_new();
   launch_config(event_base);
+  if (offline_file)
+    return 0;
   signal(SIGUSR1, showStats);
   while (1)
     event_base_dispatch(event_base);
